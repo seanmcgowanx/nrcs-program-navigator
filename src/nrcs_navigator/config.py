@@ -16,6 +16,10 @@ What belongs here:
     - Data source URLs for the two live scrape tools (practice standards,
       ranking dates).
     - Embedding model name and chunking parameters used by the vector store.
+      The embedding model is an open decision (for example OpenAI
+      text-embedding-3 vs. an open source model such as BGE); whichever is
+      chosen sets the pgvector column dimension in data/db.py, so it is
+      configured here in one place.
     - Helper accessors so other modules import settings from here instead of
       reading os.environ directly.
 

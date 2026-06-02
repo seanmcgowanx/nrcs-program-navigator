@@ -1,0 +1,36 @@
+# Local reproducibility for the NRCS Conservation Program Navigator.
+#
+# Brings up the single PostgreSQL + pgvector database that backs the whole
+# project: the payment_rates table, the eCFR embeddings, and the LangGraph
+# checkpointer (agent conversation state). The pgvector/pgvector image ships
+# the vector extension; db.init_db() runs CREATE EXTENSION IF NOT EXISTS
+# vector on first use.
+#
+# Usage:
+#   docker compose up -d        # start Postgres in the background
+#   docker compose down         # stop it (data persists in the named volume)
+#   docker compose down -v      # stop and wipe the database volume
+#
+# Point DATABASE_URL in your .env at this instance, for example:
+#   postgresql+psycopg://user:password@localhost:5432/nrcs_navigator
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: nrcs-pg
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: nrcs_navigator
+    ports:
+      - "5432:5432"
+    volumes:
+      - nrcs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d nrcs_navigator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  nrcs_pgdata:

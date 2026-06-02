@@ -1,8 +1,8 @@
 """Agent package (AI Engineer owns).
 
-Assembles the single LLM and the five tools into a ReAct agent.
+Assembles the single LLM and the four tools into a ReAct agent.
 
-    prompts   System prompt and any tool description text.
+    prompts   System prompt (role, scope guard, elicitation flow) and tool text.
     llms      Model factory; returns a chat model for the chosen provider so
               the premier model and the cheaper model are interchangeable.
     graph     LangGraph wiring: binds tools to the model and runs the

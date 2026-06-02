@@ -15,5 +15,5 @@ Intended responsibilities:
       model to support the ROI calculation in the evaluation notebook.
 
 The returned model must support tool / function calling so graph.py can bind
-the five tools to it.
+the four tools to it.
 """

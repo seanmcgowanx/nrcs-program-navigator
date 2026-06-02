@@ -1,4 +1,4 @@
-"""Unit tests for the five agent tools.
+"""Unit tests for the four agent tools.
 
 Each tool is pure data retrieval or logic, so it can be tested without an LLM.
 Planned coverage:
@@ -7,7 +7,9 @@ Planned coverage:
     - eligibility_screener returns relevant chunks for an in scope query.
     - practice_matcher and deadline_lookup parse a saved sample of the scraped
       page (fixture) and fail gracefully on a bad response.
-    - out_of_scope_handler returns a polite decline for irrelevant input.
+
+Out of scope handling is not a tool, so it is covered in test_agent.py
+(the system prompt makes the agent decline), not here.
 
 No tests implemented yet; this is a scaffold.
 """

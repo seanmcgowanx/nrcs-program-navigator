@@ -6,9 +6,12 @@ reject irrelevant input.
 
 Intended contents:
     - A set of realistic in scope farmer scenarios (varied commodity, acreage,
-      state, and goals) that exercise all five tools.
+      state, and goals) that exercise all four tools.
     - At least two out of scope inputs (for example a CRP question, which is
       FSA administered, and an unrelated request) to test graceful rejection.
+      Rejection is driven by the system prompt scope guard, not a tool, so
+      these examples check that the agent declines and redirects without
+      calling a tool.
     - Optional reference answers or rubric notes per example for the judge.
     - A helper to push this set to a LangSmith dataset so runs are repeatable.
 

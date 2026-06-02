@@ -1,6 +1,6 @@
 """Agent tools package (AI Engineer owns).
 
-The five tools the LLM can call during the ReAct loop. None of these tools
+The four tools the LLM can call during the ReAct loop. None of these tools
 call an LLM themselves; they are pure data retrieval or logic. The LLM reads
 their output and decides what to do next.
 
@@ -8,7 +8,9 @@ their output and decides what to do next.
     practice_matcher       Live scrape of the NRCS Practice Standards index.
     payment_estimator      Query the cleaned FIPS payment table.
     deadline_lookup        Live scrape of the NRCS Ranking Dates page.
-    out_of_scope_handler   Politely decline irrelevant input and redirect.
+
+Scope handling is NOT a tool. The agent declines out of scope requests via
+its system prompt (see agent/prompts.py), not a dedicated function.
 
 Each module is expected to expose a LangChain tool object (name, description,
 args schema) that agent/graph.py binds to the model.

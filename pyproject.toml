@@ -1,6 +1,6 @@
 [tool.poetry]
 # NRCS Conservation Program Navigator — AAI-510 Final Team Project
-# An AI agent (single LLM + 5 tools, ReAct loop) that helps farmers identify,
+# An AI agent (single LLM + 4 tools, ReAct loop) that helps farmers identify,
 # evaluate, and apply for NRCS conservation funding programs.
 name = "nrcs-navigator"
 version = "0.1.0"
@@ -44,6 +44,10 @@ pypdf = "^4.3.0"           # extract text from the 4 eCFR regulation PDFs
 
 # --- Config / environment ---
 python-dotenv = "^1.0.0"  # load API keys and settings from .env
+
+# --- Serving layer (optional for grading; demonstrates the agent as a service) ---
+fastapi = "^0.115.0"  # exposes POST /chat over the agent
+uvicorn = "^0.30.0"   # ASGI server to run the FastAPI app
 
 [tool.poetry.group.notebook.dependencies]
 # Notebooks are the graded deliverables (data pipeline, agent definition, eval traces).

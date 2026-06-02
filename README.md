@@ -8,7 +8,7 @@ A farmer describes their operation in plain language and the agent returns a ran
 
 ## Architecture at a glance
 
-A single LLM orchestrates five tools through a ReAct reasoning loop (Reason, Act, Observe, repeat). The LLM decides which tool to call based on context; nothing is hard coded into a fixed sequence. None of the tools call an LLM themselves; they are pure data retrieval or logic.
+A single LLM orchestrates four tools through a ReAct reasoning loop (Reason, Act, Observe, repeat). The LLM decides which tool to call based on context; nothing is hard coded into a fixed sequence. None of the tools call an LLM themselves; they are pure data retrieval or logic.
 
 | Tool | Type | Data source |
 |------|------|-------------|
@@ -16,22 +16,24 @@ A single LLM orchestrates five tools through a ReAct reasoning loop (Reason, Act
 | `practice_matcher` | Live web scrape | NRCS Practice Standards index |
 | `payment_estimator` | SQL query | `payment_rates` table in Postgres (from the FIPS CSV, FY2023 to FY2025) |
 | `deadline_lookup` | Live web scrape | NRCS Ranking Dates page |
-| `out_of_scope_handler` | Logic only | None; polite decline and redirect |
+
+Scope handling is not a tool. The agent gracefully declines out of scope requests (CRP, which is FSA administered; legal or tax advice; unrelated chit chat) and redirects the user, all via its system prompt. The system prompt also drives a short elicitation flow that gathers the farmer profile (state and county, acreage, current practices, primary resource concern) across turns before screening.
 
 The multiple model requirement is satisfied at evaluation time by swapping the agent LLM (premier model vs. cheaper model) across traces. It is not a two LLM pipeline.
 
-Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state).
+Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state). An optional FastAPI serving layer (`POST /chat`) wraps the agent so it can run as a service; `docker-compose.yml` brings up the database for local reproducibility.
 
 ## Repository structure
 
 ```
 .
 ├── pyproject.toml              Poetry project + dependencies
+├── docker-compose.yml          Local Postgres + pgvector for reproducibility
 ├── .env.example                Template for API keys and settings (copy to .env)
 ├── .gitignore
 ├── notebooks/                  Graded deliverables (run top to bottom)
 │   ├── 01_data_pipeline.ipynb      DE owns — ingest CSV, scrape + embed eCFR
-│   ├── 02_agent_definition.ipynb   AIE owns — assemble LLM + 5 tools + ReAct loop
+│   ├── 02_agent_definition.ipynb   AIE owns — assemble LLM + 4 tools + ReAct loop
 │   └── 03_evaluation_traces.ipynb  AIE owns — 5 traces, LLM comparison, judge
 ├── src/nrcs_navigator/         Importable package (notebooks import from here)
 │   ├── config.py                   Central settings, model names, paths from .env
@@ -40,16 +42,17 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 │   │   ├── fips_payments.py            Load FIPS CSV into the payment_rates table
 │   │   ├── ecfr_loader.py              Download, extract, chunk the 4 eCFR PDFs
 │   │   └── vectorstore.py              Embed eCFR chunks into the pgvector store
-│   ├── tools/                      The five agent tools (AIE)
+│   ├── tools/                      The four agent tools (AIE)
 │   │   ├── eligibility_screener.py     RAG over eCFR regulations
 │   │   ├── practice_matcher.py         Live scrape of practice standards
 │   │   ├── payment_estimator.py        Query FIPS payment table
-│   │   ├── deadline_lookup.py          Live scrape of ranking dates
-│   │   └── out_of_scope_handler.py     Graceful decline for irrelevant input
+│   │   └── deadline_lookup.py          Live scrape of ranking dates
 │   ├── agent/                      Agent assembly (AIE)
-│   │   ├── prompts.py                  System prompt and tool descriptions
+│   │   ├── prompts.py                  System prompt: scope guard + elicitation
 │   │   ├── llms.py                     Model factory: premier vs. cheaper, swappable
 │   │   └── graph.py                    LangGraph ReAct agent wiring it all together
+│   ├── serving/                    Optional FastAPI serving layer (AIE)
+│   │   └── app.py                      POST /chat over the agent
 │   └── evaluation/                 Evaluation harness (AIE)
 │       ├── datasets.py                 Eval inputs, including out of scope cases
 │       ├── judge.py                    LLM as judge scoring functions
