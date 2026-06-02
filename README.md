@@ -74,35 +74,54 @@ Cleaned payments and embeddings are not kept on disk; they live in Postgres.
 
 ## Setup
 
-1. Install Poetry if you do not have it: https://python-poetry.org/docs/#installation
-2. Install dependencies (creates a virtual environment):
+1. Install Poetry if you do not have it. Install it in isolation, not into a conda or project environment, so its own dependencies stay separate:
+
+   ```bash
+   pip install pipx        # if you do not already have pipx
+   pipx ensurepath
+   pipx install poetry
+   ```
+
+   (Alternatively, the official installer: `curl -sSL https://install.python-poetry.org | python3 -`.) Restart your shell afterward so `poetry` is on your PATH.
+
+2. Use a Python 3.11 interpreter. The project requires `>=3.10,<3.13`, so a default 3.13 environment will not work. With conda:
+
+   ```bash
+   conda create -n nrcs python=3.11 -y
+   conda activate nrcs
+   poetry env use $(which python)
+   ```
+
+   Poetry builds its own virtual environment on top of that interpreter; conda only supplies the Python.
+
+3. Install dependencies:
 
    ```bash
    poetry install
    ```
 
-3. Copy the environment template and fill in your keys:
+4. Copy the environment template and fill in your keys:
 
    ```bash
    cp .env.example .env
    # then edit .env with your OpenAI, Google, and LangSmith keys, plus DATABASE_URL
    ```
 
-4. Provision PostgreSQL and point `DATABASE_URL` at it. The pgvector extension is enabled automatically by `db.init_db()` (which runs `CREATE EXTENSION IF NOT EXISTS vector`) the first time the pipeline runs, so the role in `DATABASE_URL` needs permission to create extensions. A quick local option:
+5. Provision PostgreSQL and point `DATABASE_URL` at it. The pgvector extension is enabled automatically by `db.init_db()` (which runs `CREATE EXTENSION IF NOT EXISTS vector`) the first time the pipeline runs, so the role in `DATABASE_URL` needs permission to create extensions. The simplest local option is the bundled compose file:
 
    ```bash
-   docker run -d --name nrcs-pg -p 5432:5432 \
-     -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=nrcs_navigator \
-     pgvector/pgvector:pg16
+   docker compose up -d
    ```
 
-5. Register the Jupyter kernel so the notebooks use this environment:
+   (Equivalently, a one off container: `docker run -d --name nrcs-pg -p 5432:5432 -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=nrcs_navigator pgvector/pgvector:pg16`.)
+
+6. Register the Jupyter kernel so the notebooks use this environment:
 
    ```bash
    poetry run python -m ipykernel install --user --name nrcs-navigator
    ```
 
-6. Launch the notebooks:
+7. Launch the notebooks:
 
    ```bash
    poetry run jupyter lab

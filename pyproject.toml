@@ -29,7 +29,7 @@ langsmith = "^0.1.0"  # trace capture + eval datasets + LLM-as-judge scoring
 # One store for three things: the payment_rates table, the eCFR embeddings,
 # and the LangGraph checkpointer (agent conversation state).
 langchain-postgres = "^0.0.12"                          # PGVector store for eCFR embeddings
-pgvector = "^0.3.0"                                      # pgvector types / Python bindings
+pgvector = "^0.2.5"                                      # pgvector types / Python bindings (matches langchain-postgres 0.0.12)
 sqlalchemy = "^2.0.0"                                    # engine + payment_rates table access
 psycopg = { version = "^3.2.0", extras = ["binary"] }   # Postgres driver (binary build)
 langgraph-checkpoint-postgres = "^2.0.0"                # persist agent state in Postgres
