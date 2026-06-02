@@ -1,0 +1,119 @@
+# NRCS Conservation Program Navigator
+
+AAI-510 Final Team Project — an AI agent that helps farmers identify, evaluate, and apply for NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP).
+
+A farmer describes their operation in plain language and the agent returns a ranked list of programs they qualify for, estimated payment ranges, applicable practice codes, and current application deadlines. The goal is to collapse a fragmented, state by state regulatory landscape into a single conversation.
+
+> This repository is a bare bones scaffold. Every module is a stub containing only a docstring describing its purpose. No logic is implemented yet.
+
+## Architecture at a glance
+
+A single LLM orchestrates five tools through a ReAct reasoning loop (Reason, Act, Observe, repeat). The LLM decides which tool to call based on context; nothing is hard coded into a fixed sequence. None of the tools call an LLM themselves; they are pure data retrieval or logic.
+
+| Tool | Type | Data source |
+|------|------|-------------|
+| `eligibility_screener` | RAG (pgvector search) | eCFR regulation embeddings in Postgres |
+| `practice_matcher` | Live web scrape | NRCS Practice Standards index |
+| `payment_estimator` | SQL query | `payment_rates` table in Postgres (from the FIPS CSV, FY2023 to FY2025) |
+| `deadline_lookup` | Live web scrape | NRCS Ranking Dates page |
+| `out_of_scope_handler` | Logic only | None; polite decline and redirect |
+
+The multiple model requirement is satisfied at evaluation time by swapping the agent LLM (premier model vs. cheaper model) across traces. It is not a two LLM pipeline.
+
+Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state).
+
+## Repository structure
+
+```
+.
+├── pyproject.toml              Poetry project + dependencies
+├── .env.example                Template for API keys and settings (copy to .env)
+├── .gitignore
+├── notebooks/                  Graded deliverables (run top to bottom)
+│   ├── 01_data_pipeline.ipynb      DE owns — ingest CSV, scrape + embed eCFR
+│   ├── 02_agent_definition.ipynb   AIE owns — assemble LLM + 5 tools + ReAct loop
+│   └── 03_evaluation_traces.ipynb  AIE owns — 5 traces, LLM comparison, judge
+├── src/nrcs_navigator/         Importable package (notebooks import from here)
+│   ├── config.py                   Central settings, model names, paths from .env
+│   ├── data/                       Data pipeline building blocks (DE)
+│   │   ├── db.py                       Postgres + pgvector connection and schema
+│   │   ├── fips_payments.py            Load FIPS CSV into the payment_rates table
+│   │   ├── ecfr_loader.py              Download, extract, chunk the 4 eCFR PDFs
+│   │   └── vectorstore.py              Embed eCFR chunks into the pgvector store
+│   ├── tools/                      The five agent tools (AIE)
+│   │   ├── eligibility_screener.py     RAG over eCFR regulations
+│   │   ├── practice_matcher.py         Live scrape of practice standards
+│   │   ├── payment_estimator.py        Query FIPS payment table
+│   │   ├── deadline_lookup.py          Live scrape of ranking dates
+│   │   └── out_of_scope_handler.py     Graceful decline for irrelevant input
+│   ├── agent/                      Agent assembly (AIE)
+│   │   ├── prompts.py                  System prompt and tool descriptions
+│   │   ├── llms.py                     Model factory: premier vs. cheaper, swappable
+│   │   └── graph.py                    LangGraph ReAct agent wiring it all together
+│   └── evaluation/                 Evaluation harness (AIE)
+│       ├── datasets.py                 Eval inputs, including out of scope cases
+│       ├── judge.py                    LLM as judge scoring functions
+│       └── run_traces.py               Run the 5 traces and log them to LangSmith
+├── tests/                      Lightweight unit tests for tools and wiring
+└── data/
+    └── raw/                        Downloaded CSV and eCFR PDFs (git ignored)
+```
+
+Cleaned payments and embeddings are not kept on disk; they live in Postgres.
+
+## Stack
+
+- Agent framework: LangChain + LangGraph
+- LLMs: OpenAI (premier) and Google Gemini (cheaper / free leg, swappable)
+- Tracing and evaluation: LangSmith
+- Persistence: PostgreSQL + pgvector (payment_rates table, eCFR embeddings, agent checkpointer)
+- Environment and dependencies: Poetry
+
+## Setup
+
+1. Install Poetry if you do not have it: https://python-poetry.org/docs/#installation
+2. Install dependencies (creates a virtual environment):
+
+   ```bash
+   poetry install
+   ```
+
+3. Copy the environment template and fill in your keys:
+
+   ```bash
+   cp .env.example .env
+   # then edit .env with your OpenAI, Google, and LangSmith keys, plus DATABASE_URL
+   ```
+
+4. Provision PostgreSQL and point `DATABASE_URL` at it. The pgvector extension is enabled automatically by `db.init_db()` (which runs `CREATE EXTENSION IF NOT EXISTS vector`) the first time the pipeline runs, so the role in `DATABASE_URL` needs permission to create extensions. A quick local option:
+
+   ```bash
+   docker run -d --name nrcs-pg -p 5432:5432 \
+     -e POSTGRES_USER=user -e POSTGRES_PASSWORD=password -e POSTGRES_DB=nrcs_navigator \
+     pgvector/pgvector:pg16
+   ```
+
+5. Register the Jupyter kernel so the notebooks use this environment:
+
+   ```bash
+   poetry run python -m ipykernel install --user --name nrcs-navigator
+   ```
+
+6. Launch the notebooks:
+
+   ```bash
+   poetry run jupyter lab
+   ```
+
+## Deliverable ownership
+
+| Deliverable | Owner | Notebook |
+|-------------|-------|----------|
+| Data pipeline | Data Engineer | `notebooks/01_data_pipeline.ipynb` |
+| Agent definition | AI Engineer | `notebooks/02_agent_definition.ipynb` |
+| Evaluation traces | AI Engineer | `notebooks/03_evaluation_traces.ipynb` |
+| Video presentation | Product Manager | (recorded separately, no AI usage) |
+
+## Scope note
+
+NRCS programs only. CRP is administered by FSA, a separate USDA agency with separate eligibility rules, payment data, and deadlines, so it is intentionally excluded and noted as a natural v2 addition.

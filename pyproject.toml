@@ -1,0 +1,67 @@
+[tool.poetry]
+# NRCS Conservation Program Navigator — AAI-510 Final Team Project
+# An AI agent (single LLM + 5 tools, ReAct loop) that helps farmers identify,
+# evaluate, and apply for NRCS conservation funding programs.
+name = "nrcs-navigator"
+version = "0.1.0"
+description = "AI agent that helps farmers navigate NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP)."
+authors = ["AAI-510 Team"]
+readme = "README.md"
+packages = [{ include = "nrcs_navigator", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+
+# --- Agent framework (the spine) ---
+langgraph = "^0.2.0"            # ReAct reasoning loop / agent graph
+langchain = "^0.3.0"           # core abstractions: tools, messages, runnables
+langchain-core = "^0.3.0"      # base interfaces shared across langchain packages
+langchain-community = "^0.3.0" # community integrations and document loaders
+
+# --- LLM providers (multi-model comparison for the evaluation + ROI story) ---
+langchain-openai = "^0.2.0"        # premier model leg (e.g. GPT-4o)
+langchain-google-genai = "^2.0.0"  # cheaper/free leg (e.g. Gemini Flash) — swappable
+
+# --- Tracing & evaluation ---
+langsmith = "^0.1.0"  # trace capture + eval datasets + LLM-as-judge scoring
+
+# --- Persistence: PostgreSQL + pgvector ---
+# One store for three things: the payment_rates table, the eCFR embeddings,
+# and the LangGraph checkpointer (agent conversation state).
+langchain-postgres = "^0.0.12"                          # PGVector store for eCFR embeddings
+pgvector = "^0.3.0"                                      # pgvector types / Python bindings
+sqlalchemy = "^2.0.0"                                    # engine + payment_rates table access
+psycopg = { version = "^3.2.0", extras = ["binary"] }   # Postgres driver (binary build)
+langgraph-checkpoint-postgres = "^2.0.0"                # persist agent state in Postgres
+tiktoken = "^0.7.0"                                      # token counting for chunking + ROI
+
+# --- Data pipeline (DE) ---
+pandas = "^2.2.0"          # read NRCS Practice FIPS CSV before loading to Postgres
+requests = "^2.32.0"       # HTTP for live scrapes (practice standards, ranking dates)
+beautifulsoup4 = "^4.12.0" # HTML parsing for the two live web-scrape tools
+lxml = "^5.2.0"            # fast parser backend for beautifulsoup
+pypdf = "^4.3.0"           # extract text from the 4 eCFR regulation PDFs
+
+# --- Config / environment ---
+python-dotenv = "^1.0.0"  # load API keys and settings from .env
+
+[tool.poetry.group.notebook.dependencies]
+# Notebooks are the graded deliverables (data pipeline, agent definition, eval traces).
+ipykernel = "^6.29.0"
+jupyter = "^1.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"   # unit tests for tools and agent wiring
+ruff = "^0.6.0"     # lint + format
+mypy = "^1.11.0"    # optional static type checking
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
