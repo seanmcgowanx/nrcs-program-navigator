@@ -25,3 +25,19 @@ What belongs here:
 
 No business logic. Configuration only.
 """
+
+from pathlib import Path
+
+# Project root resolved from this file's location, so paths work no matter
+# what the current working directory is when a module imports config.
+# config.py lives at <root>/src/nrcs_navigator/config.py, so the root is
+# three parents up.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Downloaded source artifacts (CSV + eCFR PDFs). Git ignored; the pipeline
+# reads from here and lands cleaned data in Postgres, not back on disk.
+DATA_RAW = PROJECT_ROOT / "data" / "raw"
+
+# The NRCS Practice FIPS payment export (FY2023 to FY2025). UTF-16,
+# tab-delimited, with a title row above the real header.
+FIPS_PAYMENTS_CSV = DATA_RAW / "Practice_FIPS_23-25.csv"

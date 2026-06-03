@@ -53,6 +53,7 @@ uvicorn = "^0.30.0"   # ASGI server to run the FastAPI app
 # Notebooks are the graded deliverables (data pipeline, agent definition, eval traces).
 ipykernel = "^6.29.0"
 jupyter = "^1.1.0"
+matplotlib = "^3.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"   # unit tests for tools and agent wiring
