@@ -67,11 +67,17 @@ def build_index(chunks: list[Document]) -> int:
     return len(chunks)
 
 
-def similarity_search(query: str, k: int = 4) -> list[Document]:
+def similarity_search(
+    query: str, k: int = 4, program: str | None = None
+) -> list[Document]:
     """Return the k regulation chunks most similar to the query.
 
     Embeds the query with the same model, then asks pgvector for the nearest
     stored vectors. Each result is a Document carrying the section's text and its
     citation metadata, so eligibility_screener can quote and cite the source.
+
+    program scopes the search to one NRCS program (EQIP/ACEP/CSP/RCPP) by
+    filtering on the chunk metadata; None searches across all four.
     """
-    return get_store().similarity_search(query, k=k)
+    metadata_filter = {"program": program} if program else None
+    return get_store().similarity_search(query, k=k, filter=metadata_filter)
