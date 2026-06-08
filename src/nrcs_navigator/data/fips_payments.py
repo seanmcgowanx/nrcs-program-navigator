@@ -21,8 +21,10 @@ screened for eligibility elsewhere and redirected to the local NRCS office.
 """
 
 import pandas as pd
+from sqlalchemy import Engine, text
 
 from nrcs_navigator import config
+from nrcs_navigator.data import db
 
 # The NRCS programs the agent screens for. CStwP is the Conservation Stewardship
 # Program (CSP); CSP-GCI is its Grassland Conservation Initiative. AMA, AWEP, and
@@ -117,3 +119,28 @@ def clean(raw: pd.DataFrame) -> pd.DataFrame:
 def load_clean() -> pd.DataFrame:
     """Convenience: read the raw CSV and return the cleaned DataFrame."""
     return clean(load_raw())
+
+
+def write(df: pd.DataFrame, engine: Engine | None = None) -> int:
+    """Replace the contents of payment_rates with the cleaned rows.
+
+    The eight columns of df line up by name with the payment_rates table (the
+    SERIAL id is assigned by Postgres, so df has no id column). TRUNCATE first,
+    then append, so re-running the pipeline reloads cleanly instead of stacking
+    duplicate rows. RESTART IDENTITY resets the id sequence to 1 on each reload.
+
+    Assumes init_db() has already created the table. Returns the row count
+    written so the notebook can assert it matches the DataFrame.
+    """
+    engine = engine or db.get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE TABLE payment_rates RESTART IDENTITY;"))
+        df.to_sql(
+            "payment_rates",
+            conn,
+            if_exists="append",
+            index=False,
+            method="multi",
+            chunksize=1000,
+        )
+    return len(df)
