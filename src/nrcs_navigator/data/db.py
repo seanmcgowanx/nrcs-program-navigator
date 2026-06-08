@@ -57,6 +57,17 @@ def get_engine() -> Engine:
     return create_engine(config.DATABASE_URL)
 
 
+def psycopg_url() -> str:
+    """DATABASE_URL in plain libpq form, dropping SQLAlchemy's +psycopg dialect
+    tag (postgresql+psycopg://... -> postgresql://...).
+
+    For libraries that take a raw connection string rather than a SQLAlchemy
+    engine -- notably the LangGraph PostgresSaver checkpointer, which manages
+    its own psycopg connection and tables.
+    """
+    return config.DATABASE_URL.replace("+psycopg", "", 1)
+
+
 def init_db() -> None:
     """Prepare the database: enable pgvector and create payment_rates.
 

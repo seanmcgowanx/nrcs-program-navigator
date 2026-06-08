@@ -76,6 +76,11 @@ DATABASE_URL = _require("DATABASE_URL")
 PREMIER_MODEL = os.environ.get("PREMIER_MODEL", "gpt-4o")
 CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "gemini-2.0-flash")
 
+# Sampling temperature for the agent LLM. 0 keeps tool use and answers as
+# deterministic as the model allows, which matters for reproducible evaluation
+# traces and consistent tool calling.
+AGENT_TEMPERATURE = 0.0
+
 # Embedding model for the eCFR vector store (the eligibility_screener's RAG).
 # Decided: OpenAI text-embedding-3-small. A fixed constant, not an env var --
 # the stored vectors are this model's 1536-wide output and the query text must
@@ -107,4 +112,24 @@ ECFR_PARTS = {
     "1468": "ACEP",
     "1470": "CSP",
     "1464": "RCPP",
+}
+
+# --- NRCS programs (the agent's vocabulary) ---
+# The four high-level programs are the lingua franca between tools: the agent
+# reasons and the tools communicate in these names. This is the single source
+# of truth -- tools reference it rather than re-listing the programs.
+PROGRAMS = ("EQIP", "ACEP", "CSP", "RCPP")
+
+# The FIPS payment export labels rows by funding pool, not by high-level
+# program: one program spans several pools funded by different authorities
+# (Farm Bill vs the Inflation Reduction Act, etc.). payment_estimator uses this
+# map to translate a high-level program into its pools, so the granular labels
+# never leak out of the data layer. ACEP is appraisal based and has no payment
+# rows, so it is absent. Note CSP is stored under its older acronym "CStwP"
+# plus the grassland initiative "CSP-GCI" -- a LIKE 'CSP%' would miss the CStwP
+# rows, which is why an explicit map (not a prefix match) is required.
+PROGRAM_FUNDING_POOLS = {
+    "EQIP": ("EQIP Farm Bill", "EQIP IRA"),
+    "CSP": ("CStwP Farm Bill", "CStwP IRA", "CSP-GCI"),
+    "RCPP": ("RCPP-CSP", "RCPP-EQIP"),
 }

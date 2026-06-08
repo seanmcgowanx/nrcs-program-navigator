@@ -34,7 +34,7 @@ This is what satisfies the rubric requirement to gracefully handle out of scope 
 
 ## Elicitation flow
 
-The system prompt also drives a short multi turn flow. Before screening eligibility, the agent gathers the farmer profile when it is missing: state and county, acreage, current practices or operation type, and the primary resource concern. It asks for missing fields one conversational step at a time rather than dumping a form, and proceeds once it has enough to screen. Collected fields accumulate in the graph state so the agent does not re ask.
+The system prompt also drives a short multi turn flow. Before screening eligibility, the agent gathers the client's farm profile from the advisor when it is missing: state and county, acreage, current practices or operation type, and the primary resource concern. It asks for missing fields one conversational step at a time rather than dumping a form, and proceeds once it has enough to screen. Collected fields accumulate in the graph state so the agent does not re ask.
 
 ## Persistence
 
@@ -50,8 +50,8 @@ A single PostgreSQL database with the pgvector extension holds three things:
 
 The checkpointer persists, keyed by session or thread ID:
 
-- Message history (the running farmer and agent conversation).
-- Accumulated farmer profile (the elicited fields, so the agent does not re ask across turns).
+- Message history (the running advisor and agent conversation).
+- Accumulated client profile (the elicited fields, so the agent does not re ask across turns).
 - Cached scrape results (practice standards and ranking dates fetched during the session, reused so a live scrape is not repeated within a conversation).
 
 ## Serving layer (optional)
@@ -72,3 +72,5 @@ These were open and are now settled; recorded here so the choice and its reasoni
 
 - **Embedding model: OpenAI `text-embedding-3-small` (1536 dimensions).** Chosen over an open source model because it adds no dependencies (the OpenAI client is already used for the premier model leg), is strong on dense regulatory text, and costs a fraction of a cent for this corpus. Configured as constants in `config.py` (`EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`), not env vars: the stored pgvector embeddings are this model's output, so the model and its dimension are an invariant, not a tunable. Unlike the two agent LLMs (swapped via env for the evaluation), changing the embedding model means embedding every chunk again. Decided 2026-06-08.
 - **eCFR source: the eCFR API as structured XML, not PDFs.** The four parts are fetched from the versioner API (`full/{date}/title-7.xml?part=NNNN`) at a pinned version date for reproducible embeddings. The XML exposes the part, subpart, and section hierarchy explicitly, so chunks align to whole sections (one chunk per section; an oversized section is split further to `CHUNK_SIZE` tokens with `CHUNK_OVERLAP`) and each chunk carries its citation (for example 7 CFR 1466.6). This replaces the original PDF plus pypdf plan, which would have required reverse engineering section boundaries from extracted text and produced weaker citations. Decided 2026-06-08.
+- **Agent program vocabulary: the four high level programs (EQIP, ACEP, CSP, RCPP).** These are the lingua franca between tools and what the model reasons in, defined once as `config.PROGRAMS`. The FIPS payment export instead labels rows by funding pool (EQIP Farm Bill, EQIP IRA, CStwP Farm Bill, CStwP IRA, CSP-GCI, RCPP-CSP, RCPP-EQIP); those granular labels are a data layer detail and must not cross a tool boundary. `payment_estimator` alone translates a high level program into its pools via `config.PROGRAM_FUNDING_POOLS` and aggregates across them. An explicit map is used rather than a SQL prefix match because CSP is stored under its older acronym "CStwP" plus "CSP-GCI", so a `LIKE 'CSP%'` would silently miss the CStwP rows. `fips_payments.IN_SCOPE_PROGRAMS` (the cleaning filter) is derived by flattening the same map, so the seven labels live in one place. Decided 2026-06-08.
+- **eligibility_screener retrieval is deduplicated by section.** A long section is split into several chunks, so a raw top k similarity search can return multiple chunks of the same section and crowd out other relevant provisions. The tool over fetches candidate chunks (`CANDIDATE_CHUNKS`), keeps the best ranked chunk per distinct section, and returns the top distinct sections (`TOP_SECTIONS`), so the model sees a breadth of provisions rather than repeats of one. Decided 2026-06-08.

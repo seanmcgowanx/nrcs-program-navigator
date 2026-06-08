@@ -1,8 +1,8 @@
 # NRCS Conservation Program Navigator
 
-AAI-510 Final Team Project — an AI agent that helps farmers identify, evaluate, and apply for NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP).
+AAI-510 Final Team Project — an internal AI agent for advisors at an agricultural consulting agency, who use it to research NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP) for their farmer and landowner clients.
 
-A farmer describes their operation in plain language and the agent returns a ranked list of programs they qualify for, estimated payment ranges, applicable practice codes, and current application deadlines. The goal is to collapse a fragmented, state by state regulatory landscape into a single conversation.
+An advisor describes a client's operation in plain language and the agent returns a ranked list of programs the client may qualify for, estimated payment ranges, applicable practice codes, and current application deadlines. The goal is to collapse a fragmented, state by state regulatory landscape into a single conversation.
 
 > This repository is a bare bones scaffold. Every module is a stub containing only a docstring describing its purpose. No logic is implemented yet.
 

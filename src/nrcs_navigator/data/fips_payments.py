@@ -26,18 +26,12 @@ from sqlalchemy import Engine, text
 from nrcs_navigator import config
 from nrcs_navigator.data import db
 
-# The NRCS programs the agent screens for. CStwP is the Conservation Stewardship
-# Program (CSP); CSP-GCI is its Grassland Conservation Initiative. AMA, AWEP, and
-# WHIP are legacy and dropped here so the payment_rates table only holds programs
-# the agent can actually act on.
+# The funding-pool labels to keep when cleaning the raw export, flattened from
+# the high-level program -> pools map in config (the single source of truth).
+# Legacy programs (AMA, AWEP, WHIP) are absent from the map, so they are dropped
+# here and the payment_rates table only holds pools the agent can act on.
 IN_SCOPE_PROGRAMS = {
-    "EQIP Farm Bill",
-    "EQIP IRA",
-    "CStwP Farm Bill",
-    "CStwP IRA",
-    "CSP-GCI",
-    "RCPP-CSP",
-    "RCPP-EQIP",
+    pool for pools in config.PROGRAM_FUNDING_POOLS.values() for pool in pools
 }
 
 
