@@ -75,3 +75,36 @@ DATABASE_URL = _require("DATABASE_URL")
 # .env.example so the data pipeline imports cleanly before any key is set.
 PREMIER_MODEL = os.environ.get("PREMIER_MODEL", "gpt-4o")
 CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "gemini-2.0-flash")
+
+# Embedding model for the eCFR vector store (the eligibility_screener's RAG).
+# Decided: OpenAI text-embedding-3-small. A fixed constant, not an env var --
+# the stored vectors are this model's 1536-wide output and the query text must
+# be embedded by the same model, so changing it means re-embedding everything.
+# The model and its dimension travel together so they cannot drift apart.
+EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_DIMENSIONS = 1536
+
+# Chunking is section-aware: one chunk per eCFR section. These bound the
+# fallback for a section too long to embed as a single chunk -- it is sub-split
+# to CHUNK_SIZE tokens with CHUNK_OVERLAP carried across the boundary so a
+# provision spanning a split still appears whole in at least one piece.
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 64
+
+# --- eCFR regulations (source for the eligibility_screener) ---
+# Pulled from the eCFR API as structured XML, not PDFs: the section hierarchy is
+# explicit in the markup, so chunks align to whole sections and carry their
+# citation (e.g. "7 CFR 1466.6"). The version date pins one regulation snapshot
+# for reproducible embeddings.
+ECFR_API_BASE = "https://www.ecfr.gov/api/versioner/v1"
+ECFR_TITLE = 7
+ECFR_VERSION_DATE = "2025-01-01"
+
+# The four in-scope NRCS parts in Title 7 and the program each governs. CRP
+# (part 1410) is FSA-administered and intentionally excluded.
+ECFR_PARTS = {
+    "1466": "EQIP",
+    "1468": "ACEP",
+    "1470": "CSP",
+    "1464": "RCPP",
+}

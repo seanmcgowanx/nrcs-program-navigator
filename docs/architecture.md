@@ -66,6 +66,9 @@ The multiple model requirement is met at evaluation time by swapping the agent L
 
 NRCS programs only: EQIP, CSP, ACEP, RCPP. CRP is administered by FSA, a separate USDA agency with separate eligibility rules, payment data, and deadlines, so it is intentionally excluded and noted as a natural v2 addition.
 
-## Open decisions
+## Decisions
 
-- **Embedding model.** Hosted (for example OpenAI `text-embedding-3`) versus open source (for example BGE) is undecided. Whichever is chosen sets the pgvector column dimension in `data/db.py`, so it is configured once in `config.py` and must be agreed before the vector store or `eligibility_screener` is built.
+These were open and are now settled; recorded here so the choice and its reasoning persist.
+
+- **Embedding model: OpenAI `text-embedding-3-small` (1536 dimensions).** Chosen over an open source model because it adds no dependencies (the OpenAI client is already used for the premier model leg), is strong on dense regulatory text, and costs a fraction of a cent for this corpus. Configured as constants in `config.py` (`EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`), not env vars: the stored pgvector embeddings are this model's output, so the model and its dimension are an invariant, not a tunable. Unlike the two agent LLMs (swapped via env for the evaluation), changing the embedding model means embedding every chunk again. Decided 2026-06-08.
+- **eCFR source: the eCFR API as structured XML, not PDFs.** The four parts are fetched from the versioner API (`full/{date}/title-7.xml?part=NNNN`) at a pinned version date for reproducible embeddings. The XML exposes the part, subpart, and section hierarchy explicitly, so chunks align to whole sections (one chunk per section; an oversized section is split further to `CHUNK_SIZE` tokens with `CHUNK_OVERLAP`) and each chunk carries its citation (for example 7 CFR 1466.6). This replaces the original PDF plus pypdf plan, which would have required reverse engineering section boundaries from extracted text and produced weaker citations. Decided 2026-06-08.

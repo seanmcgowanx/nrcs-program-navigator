@@ -37,10 +37,9 @@ tiktoken = "^0.7.0"                                      # token counting for ch
 
 # --- Data pipeline (DE) ---
 pandas = "^2.2.0"          # read NRCS Practice FIPS CSV before loading to Postgres
-requests = "^2.32.0"       # HTTP for live scrapes (practice standards, ranking dates)
-beautifulsoup4 = "^4.12.0" # HTML parsing for the two live web-scrape tools
-lxml = "^5.2.0"            # fast parser backend for beautifulsoup
-pypdf = "^4.3.0"           # extract text from the 4 eCFR regulation PDFs
+requests = "^2.32.0"       # HTTP for the eCFR API + live scrapes (practice standards, ranking dates)
+beautifulsoup4 = "^4.12.0" # parse eCFR XML and the two live web-scrape pages
+lxml = "^5.2.0"            # fast parser backend for beautifulsoup (XML + HTML)
 
 # --- Config / environment ---
 python-dotenv = "^1.0.0"  # load API keys and settings from .env

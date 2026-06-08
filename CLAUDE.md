@@ -26,7 +26,8 @@ These are easy to get wrong and expensive to fix later. Honor them:
 - **Multiple models at evaluation time only.** The premier versus cheaper comparison is done by swapping the agent LLM across traces via the `model_name` parameter to `build_agent`. It is not a two LLM pipeline. Tools never call an LLM.
 - **Tools return data, the model reasons.** Each tool is pure retrieval or logic. Keep reasoning in the model, not the tools.
 - **NRCS only.** EQIP, CSP, ACEP, RCPP. CRP is FSA administered and intentionally excluded; the agent redirects CRP questions to the local FSA office. ACEP is appraisal based, so `payment_estimator` redirects to the local NRCS office rather than quoting a rate.
-- **The embedding model is an open decision.** Hosted versus open source is undecided and sets the pgvector dimension. Do not silently pick one; it must be agreed and configured in `config.py`. See the open decisions section of [docs/architecture.md](docs/architecture.md).
+- **Embedding model is fixed, not swappable.** OpenAI `text-embedding-3-small` (1536 dimensions), a constant in `config.py`. Unlike the two agent LLMs (swapped via env for the evaluation), the embedding model is locked: the stored pgvector embeddings are its output, so changing it means embedding every chunk again. Do not move it to `.env`.
+- **eCFR comes from the API as XML, not PDFs.** The four parts are fetched from the eCFR versioner API at a pinned version date. Chunks align to whole sections (one chunk per section) and carry their citation (for example 7 CFR 1466.6). Changed from the original PDF plan so section structure and citations are reliable. See the decisions section of [docs/architecture.md](docs/architecture.md).
 
 ## Repository layout
 
@@ -36,7 +37,7 @@ src/nrcs_navigator/
   data/                Data pipeline (Data Engineer)
     db.py                Postgres + pgvector connection and schema (DDL)
     fips_payments.py     Load FIPS CSV into payment_rates
-    ecfr_loader.py       Download, extract, chunk the four eCFR PDFs
+    ecfr_loader.py       Fetch the four eCFR parts from the API, parse XML, chunk by section
     vectorstore.py       Embed eCFR chunks into the pgvector store
   tools/               The four agent tools (AI Engineer)
   agent/               Agent assembly (AI Engineer)
@@ -48,7 +49,7 @@ src/nrcs_navigator/
 notebooks/             Graded deliverables (01 data, 02 agent, 03 evaluation)
 tests/                 Lightweight unit tests
 docs/                  Architecture and workflow references
-data/raw/              Downloaded CSV and eCFR PDFs (git ignored)
+data/raw/              Downloaded CSV and cached eCFR XML (git ignored)
 ```
 
 The notebooks are the graded deliverables and import from the `src` package, so keep logic in `src` and keep the notebooks thin.

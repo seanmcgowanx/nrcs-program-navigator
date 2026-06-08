@@ -32,7 +32,7 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 ├── .env.example                Template for API keys and settings (copy to .env)
 ├── .gitignore
 ├── notebooks/                  Graded deliverables (run top to bottom)
-│   ├── 01_data_pipeline.ipynb      DE owns — ingest CSV, scrape + embed eCFR
+│   ├── 01_data_pipeline.ipynb      DE owns — load CSV payments, fetch + embed eCFR
 │   ├── 02_agent_definition.ipynb   AIE owns — assemble LLM + 4 tools + ReAct loop
 │   └── 03_evaluation_traces.ipynb  AIE owns — 5 traces, LLM comparison, judge
 ├── src/nrcs_navigator/         Importable package (notebooks import from here)
@@ -40,7 +40,7 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 │   ├── data/                       Data pipeline building blocks (DE)
 │   │   ├── db.py                       Postgres + pgvector connection and schema
 │   │   ├── fips_payments.py            Load FIPS CSV into the payment_rates table
-│   │   ├── ecfr_loader.py              Download, extract, chunk the 4 eCFR PDFs
+│   │   ├── ecfr_loader.py              Fetch the 4 eCFR parts from the API, chunk by section
 │   │   └── vectorstore.py              Embed eCFR chunks into the pgvector store
 │   ├── tools/                      The four agent tools (AIE)
 │   │   ├── eligibility_screener.py     RAG over eCFR regulations
@@ -59,7 +59,7 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 │       └── run_traces.py               Run the 5 traces and log them to LangSmith
 ├── tests/                      Lightweight unit tests for tools and wiring
 └── data/
-    └── raw/                        Downloaded CSV and eCFR PDFs (git ignored)
+    └── raw/                        Downloaded CSV and cached eCFR XML (git ignored)
 ```
 
 Cleaned payments and embeddings are not kept on disk; they live in Postgres.
