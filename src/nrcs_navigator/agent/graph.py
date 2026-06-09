@@ -30,11 +30,15 @@ from psycopg.rows import dict_row
 from nrcs_navigator.agent import llms, prompts
 from nrcs_navigator.data import db
 from nrcs_navigator.tools.eligibility_screener import eligibility_screener
+from nrcs_navigator.tools.payment_estimator import payment_estimator
+from nrcs_navigator.tools.practice_matcher import practice_matcher
+from nrcs_navigator.tools.program_availability import program_availability
+
 
 # The tools bound to the agent. Add practice_matcher, payment_estimator, and
-# deadline_lookup here as they are implemented -- build_agent needs no other
+# program_availability here as they are implemented -- build_agent needs no other
 # change for the agent to start reasoning over them.
-TOOLS = [eligibility_screener]
+TOOLS = [eligibility_screener, payment_estimator, practice_matcher, program_availability]
 
 
 def _checkpointer() -> PostgresSaver:
