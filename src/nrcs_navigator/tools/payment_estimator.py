@@ -17,3 +17,24 @@ Intended responsibilities:
 
 Exposes a LangChain tool object for agent/graph.py to bind.
 """
+
+from nrcs_navigator import config
+from nrcs_navigator.data import db
+from sqlalchemy import text 
+
+pools = config.PROGRAM_FUNDING_POOLS["EQIP"]  # ("CStwP Farm Bill", "CStwP IRA", "CSP-GCI")
+state = "Alabama"
+codes = []
+
+with db.get_engine().connect() as conn:
+    rows = conn.execute(
+        text("""
+            SELECT practice_code, practice_name, fiscal_year,
+                    instance_count, dollars_obligated, avg_payment_per_instance
+            FROM payment_rates
+            WHERE program = ANY(:pools)
+              AND state = :state
+              AND practice_code = ANY(:codes)
+        """),
+        {"pools": list(pools), "state": state, "codes": list(codes)},
+    ).mappings().all()
