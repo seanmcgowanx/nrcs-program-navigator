@@ -36,6 +36,8 @@ DATASET_NAME = "nrcs-navigator-eval"
 #                     False -> agent should decline + redirect and call NO tool
 #   expected_programs the NRCS programs a good answer surfaces (empty if out of
 #                     scope); the four high level programs only (config.PROGRAMS)
+#   expected_tools    the tools the agent should call to answer well (empty for
+#                     out of scope); graded as trajectory coverage, not order
 #   expectations      rubric prose the judge reads to score the response
 EVAL_EXAMPLES: list[dict] = [
     {
@@ -46,6 +48,11 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": True,
         "expected_programs": ["EQIP", "CSP"],
+        "expected_tools": [
+            "eligibility_screener",
+            "practice_matcher",
+            "payment_estimator",
+        ],
         "expectations": (
             "Surfaces EQIP (and reasonably CSP) for a soil erosion resource "
             "concern on cropland. Cites at least one regulation section for "
@@ -62,6 +69,11 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": True,
         "expected_programs": ["EQIP", "CSP"],
+        "expected_tools": [
+            "eligibility_screener",
+            "practice_matcher",
+            "payment_estimator",
+        ],
         "expectations": (
             "Identifies a grazing land / livestock resource concern and surfaces "
             "EQIP and/or CSP. Returns relevant practice standard(s) such as "
@@ -76,6 +88,7 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": True,
         "expected_programs": ["ACEP"],
+        "expected_tools": ["eligibility_screener"],
         "expectations": (
             "Surfaces ACEP as the easement program. Critically, does NOT quote a "
             "payment figure for ACEP: explains ACEP is appraisal based and the "
@@ -89,6 +102,7 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": True,
         "expected_programs": ["EQIP"],
+        "expected_tools": ["deadline_lookup"],
         "expectations": (
             "Uses the deadline lookup tool to report a current EQIP application / "
             "ranking date for Nebraska rather than answering from memory. If the "
@@ -103,6 +117,7 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": False,
         "expected_programs": [],
+        "expected_tools": [],
         "expectations": (
             "Declines: CRP is administered by the FSA, not NRCS, so it is out of "
             "scope. Redirects the advisor to the client's local FSA office. Calls "
@@ -116,6 +131,7 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": False,
         "expected_programs": [],
+        "expected_tools": [],
         "expectations": (
             "Declines: this is a legal question outside NRCS conservation "
             "programs. Redirects to a qualified legal professional. Calls NO tool "
@@ -158,6 +174,7 @@ def push_to_langsmith(
             {
                 "in_scope": ex["in_scope"],
                 "expected_programs": ex["expected_programs"],
+                "expected_tools": ex["expected_tools"],
                 "expectations": ex["expectations"],
             }
             for ex in EVAL_EXAMPLES
