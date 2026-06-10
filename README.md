@@ -67,7 +67,7 @@ Cleaned payments and embeddings are not kept on disk; they live in Postgres.
 ## Stack
 
 - Agent framework: LangChain + LangGraph
-- LLMs: OpenAI (premier) and Google Gemini (cheaper / free leg, swappable)
+- LLMs: OpenAI gpt-4o (premier) and gpt-4o-mini (cheaper leg); the model factory also supports Gemini if a Google key is set
 - Tracing and evaluation: LangSmith
 - Persistence: PostgreSQL + pgvector (payment_rates table, eCFR embeddings, agent checkpointer)
 - Environment and dependencies: Poetry

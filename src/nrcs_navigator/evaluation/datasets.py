@@ -64,8 +64,10 @@ EVAL_EXAMPLES: list[dict] = [
     {
         "question": (
             "A client runs a cattle operation on 500 acres of grazing land in "
-            "Texas and wants to improve pasture health with rotational grazing. "
-            "What practices and payments could apply?"
+            "Texas. Their primary resource concern is degraded grazing land "
+            "health (overgrazed pasture and poor forage), and they want to "
+            "improve it with rotational grazing. What practices and payments "
+            "could apply?"
         ),
         "in_scope": True,
         "expected_programs": ["EQIP", "CSP"],
@@ -83,8 +85,10 @@ EVAL_EXAMPLES: list[dict] = [
     },
     {
         "question": (
-            "My client wants to permanently protect their wetland from future "
-            "development through a conservation easement. What are their options?"
+            "My client in Louisiana owns 80 acres of wetland and wants to "
+            "permanently protect it from future development through a "
+            "conservation easement. Their primary resource concern is wetland "
+            "habitat loss. What are their options?"
         ),
         "in_scope": True,
         "expected_programs": ["ACEP"],
@@ -108,6 +112,54 @@ EVAL_EXAMPLES: list[dict] = [
             "Dates page for a state) to report EQIP's current ranking date in "
             "Nebraska rather than answering from memory. If the live source is "
             "unavailable, says so gracefully instead of inventing a date."
+        ),
+    },
+    {
+        "question": (
+            "A group of landowners in the Chesapeake Bay watershed in Maryland "
+            "want to coordinate on a partnership led conservation project to "
+            "improve water quality. Is there an NRCS program built for that kind "
+            "of partnership effort?"
+        ),
+        "in_scope": True,
+        "expected_programs": ["RCPP"],
+        "expected_tools": ["eligibility_screener"],
+        "expectations": (
+            "Surfaces RCPP as the partnership / watershed program (NRCS works "
+            "with partners on locally led projects). Cites RCPP eligibility "
+            "regulation(s). May note RCPP delivers assistance through programs "
+            "like EQIP and CSP. Does not invent figures or citations."
+        ),
+    },
+    {
+        "question": (
+            "What is the typical EQIP payment for cover crop (practice code 340) "
+            "in Iowa?"
+        ),
+        "in_scope": True,
+        "expected_programs": ["EQIP"],
+        "expected_tools": ["payment_estimator"],
+        "expectations": (
+            "Uses the payment estimator to report a payment range (low, typical, "
+            "high) for the EQIP cover crop practice in Iowa from the historical "
+            "payment data, with the source noted. Does not invent a figure; if no "
+            "matching rate exists, says so clearly."
+        ),
+    },
+    {
+        "question": (
+            "Which conservation programs currently have ranking dates open in "
+            "Puerto Rico, and when are they?"
+        ),
+        "in_scope": True,
+        "expected_programs": [],
+        "expected_tools": ["program_availability"],
+        "expectations": (
+            "Calls the program availability tool for Puerto Rico. If the live "
+            "Ranking Dates page returns no data for that location, the agent "
+            "says so honestly and suggests the local NRCS office rather than "
+            "inventing programs or dates. The key behavior is graceful handling "
+            "of a no result lookup, not a specific answer."
         ),
     },
     {
@@ -136,6 +188,20 @@ EVAL_EXAMPLES: list[dict] = [
             "Declines: this is a legal question outside NRCS conservation "
             "programs. Redirects to a qualified legal professional. Calls NO tool "
             "and does not offer legal analysis."
+        ),
+    },
+    {
+        "question": (
+            "My client donated a conservation easement last year. How should they "
+            "claim the federal tax deduction for it on their return?"
+        ),
+        "in_scope": False,
+        "expected_programs": [],
+        "expected_tools": [],
+        "expectations": (
+            "Declines: tax treatment is outside NRCS conservation program scope. "
+            "Redirects to a qualified tax professional. Calls NO tool and does "
+            "not offer tax advice."
         ),
     },
 ]

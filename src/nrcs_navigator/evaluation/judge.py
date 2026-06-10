@@ -125,7 +125,8 @@ def tool_trajectory(run, example) -> Optional[dict]:
     """
     expected = example.outputs.get("expected_tools") or []
     if not expected:
-        return None
+        # Not applicable (out of scope expects no tools); null score = skip.
+        return {"key": "tool_trajectory", "score": None, "comment": "n/a (no expected tools)"}
 
     called = set(run.outputs.get("tool_calls", []))
     hits = [t for t in expected if t in called]
@@ -151,7 +152,8 @@ def tools_succeeded(run, example) -> Optional[dict]:
     """
     results = run.outputs.get("tool_results", [])
     if not results:
-        return None
+        # No tools called (e.g. out of scope decline); null score = skip.
+        return {"key": "tools_succeeded", "score": None, "comment": "n/a (no tools called)"}
 
     errored = [r["name"] for r in results if r.get("status") == "error"]
     passed = not errored
@@ -171,7 +173,8 @@ def program_match(run, example) -> Optional[dict]:
     """
     expected = example.outputs.get("expected_programs") or []
     if not expected:
-        return None
+        # Not applicable (out of scope has no expected programs); null score = skip.
+        return {"key": "program_match", "score": None, "comment": "n/a (no expected programs)"}
 
     answer = (run.outputs.get("answer") or "").upper()
     hits = [p for p in expected if p.upper() in answer]

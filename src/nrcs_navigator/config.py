@@ -82,7 +82,7 @@ NRCS_RANKING_DATES_URL = _require("NRCS_RANKING_DATES_URL")
 # evaluation can swap models without touching agent code; defaults match the
 # .env.example so the data pipeline imports cleanly before any key is set.
 PREMIER_MODEL = os.environ.get("PREMIER_MODEL", "gpt-4o")
-CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "gemini-2.0-flash")
+CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "gpt-4o-mini")
 
 # Sampling temperature for the agent LLM. 0 keeps tool use and answers as
 # deterministic as the model allows, which matters for reproducible evaluation
