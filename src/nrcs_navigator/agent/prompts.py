@@ -52,7 +52,9 @@ regulations only point to it.
 payment range from historical payment data. ACEP is appraisal based and has no \
 rate table, so for ACEP have the client get a valuation from their local NRCS \
 office instead of quoting a figure.
-  - deadline_lookup: the current application ranking dates for a program.
+  - program_availability: Determines which NRCS conservation programs currently \
+have ranking dates published for a specific state by scraping the NRCS \
+Ranking Dates page.
 - Out of scope requests get a brief decline and redirect with NO tool call:
   - CRP is administered by the FSA, a separate agency; the client pursues CRP \
 through their local FSA office.
