@@ -70,6 +70,14 @@ def _require(name: str) -> str:
 # table, the eCFR embeddings, and the LangGraph checkpointer. Required.
 DATABASE_URL = _require("DATABASE_URL")
 
+# Data source URLs for the two live-scrape tools. Read from the environment so
+# they are easy to update when NRCS reshuffles its site, and surfaced here so
+# the tools import them from config rather than reading os.environ directly.
+# Unlike the eCFR snapshot below, nothing is persisted from these, so changing
+# a URL invalidates no stored data.
+NRCS_PRACTICE_STANDARDS_URL = _require("NRCS_PRACTICE_STANDARDS_URL")
+NRCS_RANKING_DATES_URL = _require("NRCS_RANKING_DATES_URL")
+
 # The two model legs of the evaluation comparison. Read from the environment so
 # evaluation can swap models without touching agent code; defaults match the
 # .env.example so the data pipeline imports cleanly before any key is set.

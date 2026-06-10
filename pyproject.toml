@@ -47,6 +47,7 @@ python-dotenv = "^1.0.0"  # load API keys and settings from .env
 # --- Serving layer (optional for grading; demonstrates the agent as a service) ---
 fastapi = "^0.115.0"  # exposes POST /chat over the agent
 uvicorn = "^0.30.0"   # ASGI server to run the FastAPI app
+playwright = "^1.60.0"
 
 [tool.poetry.group.notebook.dependencies]
 # Notebooks are the graded deliverables (data pipeline, agent definition, eval traces).

@@ -53,7 +53,11 @@ import os
 import re
 import webbrowser
 
-RANKING_DATES_URL = "https://www.nrcs.usda.gov/ranking-dates"
+from nrcs_navigator import config
+
+# The NRCS ranking dates page, configured in one place (config reads it
+# from .env).
+RANKING_DATES_URL = config.NRCS_RANKING_DATES_URL
 
 
 def normalize_state(state: str) -> str:

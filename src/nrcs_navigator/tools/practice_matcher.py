@@ -42,14 +42,16 @@ import os
 import re
 import webbrowser
 
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
-NRCS_URL = (
-    "https://www.nrcs.usda.gov/resources/guides-and-instructions/"
-    "conservation-practice-standards"
-)
+from nrcs_navigator import config
 
-BASE_URL = "https://www.nrcs.usda.gov"
+# The practice standards index page, configured in one place (config reads it
+# from .env). BASE_URL is its scheme + host, used to resolve relative hrefs.
+NRCS_URL = config.NRCS_PRACTICE_STANDARDS_URL
+
+_parsed = urlparse(NRCS_URL)
+BASE_URL = f"{_parsed.scheme}://{_parsed.netloc}"
 
 
 def get_practice_standards(
