@@ -272,8 +272,13 @@ criterion using the exact names given:
 
 
 def _judge_model_name() -> str:
-    """The judge uses the premier model by default for reliable grading."""
-    return config.PREMIER_MODEL
+    """Model the judge grades with.
+
+    Defaults to config.JUDGE_MODEL (gpt-4o-mini) so the judge does not share the
+    premier agent leg's gpt-4o token budget and rate limit it. Validated against
+    human annotation, so the cheaper judge is a deliberate, checked choice.
+    """
+    return config.JUDGE_MODEL
 
 
 def llm_judge(run, example) -> dict:

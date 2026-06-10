@@ -26,15 +26,22 @@ def get_model(name: str | None = None) -> BaseChatModel:
     """
     name = name or config.PREMIER_MODEL
 
+    # Retry on transient errors (notably 429 rate limits) with exponential
+    # backoff so a momentary token-per-minute spike self-heals instead of failing
+    # the run. Tier 1 OpenAI accounts have low per-minute limits, so this matters.
     if name.startswith("gpt"):
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(model=name, temperature=config.AGENT_TEMPERATURE)
+        return ChatOpenAI(
+            model=name, temperature=config.AGENT_TEMPERATURE, max_retries=6
+        )
 
     if name.startswith("gemini"):
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogleGenerativeAI(model=name, temperature=config.AGENT_TEMPERATURE)
+        return ChatGoogleGenerativeAI(
+            model=name, temperature=config.AGENT_TEMPERATURE, max_retries=6
+        )
 
     raise ValueError(
         f"Unknown model '{name}'. Expected a gpt-* (OpenAI) or gemini-* (Google) name."

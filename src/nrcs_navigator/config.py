@@ -84,6 +84,12 @@ NRCS_RANKING_DATES_URL = _require("NRCS_RANKING_DATES_URL")
 PREMIER_MODEL = os.environ.get("PREMIER_MODEL", "gpt-4o")
 CHEAP_MODEL = os.environ.get("CHEAP_MODEL", "gpt-4o-mini")
 
+# Model the LLM judge uses to score eval runs. Kept off the premier model on
+# purpose: the premier agent leg and the judge would otherwise share gpt-4o's
+# per-minute token budget and rate limit each other. gpt-4o-mini has a separate,
+# higher budget, and the judge is validated against human annotation regardless.
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "gpt-4o-mini")
+
 # Sampling temperature for the agent LLM. 0 keeps tool use and answers as
 # deterministic as the model allows, which matters for reproducible evaluation
 # traces and consistent tool calling.
