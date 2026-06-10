@@ -148,7 +148,7 @@ def get_program_availability(
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
 
-            print("Navigating...")
+            print("Checking available programs...")
 
             page.goto(
                 RANKING_DATES_URL,
@@ -163,8 +163,6 @@ def get_program_availability(
             page.wait_for_timeout(2000)
 
             html = page.content()
-
-            print("HTML length:", len(html))
 
             if save_html:
 

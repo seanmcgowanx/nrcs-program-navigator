@@ -59,6 +59,9 @@ def eligibility_screener(query: str, program: str | None = None) -> str:
         Up to four distinct regulation sections, each prefixed with its citation
         and section heading, or a message if nothing relevant was found.
     """
+
+    print("Screening eligibility...")
+
     program = program.strip().upper() if program else None
     if program not in VALID_PROGRAMS:
         program = None  # ignore an unrecognized program rather than return nothing

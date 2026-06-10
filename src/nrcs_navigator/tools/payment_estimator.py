@@ -66,6 +66,8 @@ def get_payment_estimate_by_state(state: str) -> dict:
 
     try:
 
+        print("Estimating payments...")
+
         state = state.title()
 
         sql = text(
