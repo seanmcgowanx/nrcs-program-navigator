@@ -1,4 +1,4 @@
-"""Agent package (AI Engineer owns).
+"""Agent package.
 
 Assembles the single LLM and the four tools into a ReAct agent.
 

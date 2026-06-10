@@ -15,9 +15,9 @@ A single LLM orchestrates four tools through a ReAct reasoning loop (Reason, Act
 | `eligibility_screener` | RAG (pgvector search) | eCFR regulation embeddings in Postgres |
 | `practice_matcher` | Live web scrape | NRCS Practice Standards index |
 | `payment_estimator` | SQL query | `payment_rates` table in Postgres (from the FIPS CSV, FY2023 to FY2025) |
-| `deadline_lookup` | Live web scrape | NRCS Ranking Dates page |
+| `program_availability` | Live web scrape | NRCS Ranking Dates page |
 
-Scope handling is not a tool. The agent gracefully declines out of scope requests (CRP, which is FSA administered; legal or tax advice; unrelated chit chat) and redirects the user, all via its system prompt. The system prompt also drives a short elicitation flow that gathers the farmer profile (state and county, acreage, current practices, primary resource concern) across turns before screening.
+Scope handling is not a tool. The agent gracefully declines out of scope requests (CRP, which is FSA administered; legal or tax advice; unrelated chit chat) and redirects the user, all via its system prompt. The system prompt also drives a short elicitation flow that gathers the client profile (state, acreage, current practices, primary resource concern; county is optional since payment data is state level) across turns before screening.
 
 The multiple model requirement is satisfied at evaluation time by swapping the agent LLM (premier model vs. cheaper model) across traces. It is not a two LLM pipeline.
 
@@ -32,28 +32,28 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 ├── .env.example                Template for API keys and settings (copy to .env)
 ├── .gitignore
 ├── notebooks/                  Graded deliverables (run top to bottom)
-│   ├── 01_data_pipeline.ipynb      DE owns — load CSV payments, fetch + embed eCFR
-│   ├── 02_agent_definition.ipynb   AIE owns — assemble LLM + 4 tools + ReAct loop
-│   └── 03_evaluation_traces.ipynb  AIE owns — 5 traces, LLM comparison, judge
+│   ├── 01_data_pipeline.ipynb      Load CSV payments, fetch + embed eCFR
+│   ├── 02_agent_definition.ipynb   Assemble LLM + 4 tools + ReAct loop
+│   └── 03_evaluation_traces.ipynb  5 traces, LLM comparison, judge
 ├── src/nrcs_navigator/         Importable package (notebooks import from here)
 │   ├── config.py                   Central settings, model names, paths from .env
-│   ├── data/                       Data pipeline building blocks (DE)
+│   ├── data/                       Data pipeline building blocks
 │   │   ├── db.py                       Postgres + pgvector connection and schema
 │   │   ├── fips_payments.py            Load FIPS CSV into the payment_rates table
 │   │   ├── ecfr_loader.py              Fetch the 4 eCFR parts from the API, chunk by section
 │   │   └── vectorstore.py              Embed eCFR chunks into the pgvector store
-│   ├── tools/                      The four agent tools (AIE)
+│   ├── tools/                      The four agent tools
 │   │   ├── eligibility_screener.py     RAG over eCFR regulations
 │   │   ├── practice_matcher.py         Live scrape of practice standards
 │   │   ├── payment_estimator.py        Query FIPS payment table
-│   │   └── deadline_lookup.py          Live scrape of ranking dates
-│   ├── agent/                      Agent assembly (AIE)
+│   │   └── program_availability.py     Live scrape: programs open by state
+│   ├── agent/                      Agent assembly
 │   │   ├── prompts.py                  System prompt: scope guard + elicitation
 │   │   ├── llms.py                     Model factory: premier vs. cheaper, swappable
 │   │   └── graph.py                    LangGraph ReAct agent wiring it all together
-│   ├── serving/                    Optional FastAPI serving layer (AIE)
+│   ├── serving/                    Optional FastAPI serving layer
 │   │   └── app.py                      POST /chat over the agent
-│   └── evaluation/                 Evaluation harness (AIE)
+│   └── evaluation/                 Evaluation harness
 │       ├── datasets.py                 Eval inputs, including out of scope cases
 │       ├── judge.py                    LLM as judge scoring functions
 │       └── run_traces.py               Run the 5 traces and log them to LangSmith
@@ -127,14 +127,14 @@ Cleaned payments and embeddings are not kept on disk; they live in Postgres.
    poetry run jupyter lab
    ```
 
-## Deliverable ownership
+## Deliverables
 
-| Deliverable | Owner | Notebook |
-|-------------|-------|----------|
-| Data pipeline | Data Engineer | `notebooks/01_data_pipeline.ipynb` |
-| Agent definition | AI Engineer | `notebooks/02_agent_definition.ipynb` |
-| Evaluation traces | AI Engineer | `notebooks/03_evaluation_traces.ipynb` |
-| Video presentation | Product Manager | (recorded separately, no AI usage) |
+| Deliverable | Notebook |
+|-------------|----------|
+| Data pipeline | `notebooks/01_data_pipeline.ipynb` |
+| Agent definition | `notebooks/02_agent_definition.ipynb` |
+| Evaluation traces | `notebooks/03_evaluation_traces.ipynb` |
+| Video presentation | (recorded separately, no AI usage) |
 
 ## Scope note
 

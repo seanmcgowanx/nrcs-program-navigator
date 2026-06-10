@@ -1,4 +1,4 @@
-"""Data pipeline package (Data Engineer owns).
+"""Data pipeline package.
 
 Building blocks invoked by notebooks/01_data_pipeline.ipynb to prepare every
 data artifact the agent needs before it can answer a single question:

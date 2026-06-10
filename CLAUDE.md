@@ -15,7 +15,7 @@ The repository is currently a bare scaffold. Every module is a stub containing o
 
 ## Architecture in brief
 
-A single LLM orchestrates four tools through a LangGraph ReAct loop. The model chooses tools based on context; nothing is hard coded into a sequence. The four tools are `eligibility_screener` (RAG over eCFR embeddings), `practice_matcher` (live scrape), `payment_estimator` (SQL on `payment_rates`), and `deadline_lookup` (live scrape). See [docs/architecture.md](docs/architecture.md) for the full picture.
+A single LLM orchestrates four tools through a LangGraph ReAct loop. The model chooses tools based on context; nothing is hard coded into a sequence. The four tools are `eligibility_screener` (RAG over eCFR embeddings), `practice_matcher` (live scrape), `payment_estimator` (SQL on `payment_rates`), and `program_availability` (live scrape). See [docs/architecture.md](docs/architecture.md) for the full picture.
 
 ## Load bearing constraints
 
@@ -35,13 +35,13 @@ These are easy to get wrong and expensive to fix later. Honor them:
 ```
 src/nrcs_navigator/
   config.py            Central settings, model names, paths, read from .env
-  data/                Data pipeline (Data Engineer)
+  data/                Data pipeline
     db.py                Postgres + pgvector connection and schema (DDL)
     fips_payments.py     Load FIPS CSV into payment_rates
     ecfr_loader.py       Fetch the four eCFR parts from the API, parse XML, chunk by section
     vectorstore.py       Embed eCFR chunks into the pgvector store
-  tools/               The four agent tools (AI Engineer)
-  agent/               Agent assembly (AI Engineer)
+  tools/               The four agent tools
+  agent/               Agent assembly
     prompts.py           System prompt: scope guard + elicitation flow
     llms.py              Model factory: premier vs cheaper, swappable
     graph.py             LangGraph ReAct wiring + Postgres checkpointer

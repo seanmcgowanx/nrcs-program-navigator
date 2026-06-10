@@ -102,12 +102,12 @@ EVAL_EXAMPLES: list[dict] = [
         ),
         "in_scope": True,
         "expected_programs": ["EQIP"],
-        "expected_tools": ["deadline_lookup"],
+        "expected_tools": ["program_availability"],
         "expectations": (
-            "Uses the deadline lookup tool to report a current EQIP application / "
-            "ranking date for Nebraska rather than answering from memory. If the "
-            "live source is unavailable, says so gracefully instead of inventing "
-            "a date."
+            "Uses the program availability tool (which scrapes the NRCS Ranking "
+            "Dates page for a state) to report EQIP's current ranking date in "
+            "Nebraska rather than answering from memory. If the live source is "
+            "unavailable, says so gracefully instead of inventing a date."
         ),
     },
     {

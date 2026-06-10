@@ -19,7 +19,7 @@ The same agent code is built on two different models so the evaluation can compa
 | `eligibility_screener` | RAG (pgvector search) | eCFR regulation embeddings in Postgres |
 | `practice_matcher` | Live web scrape | NRCS Practice Standards index |
 | `payment_estimator` | SQL query | `payment_rates` table in Postgres (FIPS CSV, FY2023 to FY2025) |
-| `deadline_lookup` | Live web scrape | NRCS Ranking Dates page |
+| `program_availability` | Live web scrape | NRCS Ranking Dates page |
 
 `payment_estimator` does not invent a number for ACEP, which is appraisal based; it redirects the user to the local NRCS office. The two scrape tools talk to live NRCS pages and never touch the database.
 

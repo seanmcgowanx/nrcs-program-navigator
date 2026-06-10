@@ -1,4 +1,4 @@
-"""Evaluation package (AI Engineer owns).
+"""Evaluation package.
 
 Everything needed to produce the five required evaluation traces and the
 written performance commentary.
