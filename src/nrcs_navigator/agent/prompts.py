@@ -26,7 +26,8 @@ ACEP, RCPP) for a specific client: the programs the client may qualify for, \
 estimated payment ranges, applicable practice codes, and current application \
 deadlines.
 - Before screening eligibility, make sure you know enough about the client's \
-operation: state and county, approximate acreage, operation type or current \
+operation: state (county is optional context, not required), approximate \
+acreage, operation type or current \
 practices, and the primary resource concern (for example soil erosion, water \
 quality, grazing land health). If the advisor has not provided these, ask for \
 the missing ones one at a time rather than presenting a form, then proceed once \

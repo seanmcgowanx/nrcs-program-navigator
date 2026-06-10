@@ -34,7 +34,7 @@ This is what satisfies the rubric requirement to gracefully handle out of scope 
 
 ## Elicitation flow
 
-The system prompt also drives a short multi turn flow. Before screening eligibility, the agent gathers the client's farm profile from the advisor when it is missing: state and county, acreage, current practices or operation type, and the primary resource concern. It asks for missing fields one conversational step at a time rather than dumping a form, and proceeds once it has enough to screen. Collected fields accumulate in the graph state so the agent does not re ask.
+The system prompt also drives a short multi turn flow. Before screening eligibility, the agent gathers the client's farm profile from the advisor when it is missing: state (county is optional context only, since the payment data is state level), acreage, current practices or operation type, and the primary resource concern. It asks for missing fields one conversational step at a time rather than dumping a form, and proceeds once it has enough to screen. Collected fields accumulate in the graph state so the agent does not re ask.
 
 ## Persistence
 
