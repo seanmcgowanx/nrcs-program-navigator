@@ -102,6 +102,143 @@ def run_comparison(models: list[str] | None = None) -> dict:
     return {model: run_for_model(model) for model in models}
 
 
+def _to_bit(score):
+    """Normalize a feedback score to a 0/1 pass bit; None stays None."""
+    if score is None:
+        return None
+    return int(round(float(score)))
+
+
+def _cohen_kappa(pairs: list) -> float:
+    """Cohen's kappa for a list of (human_bit, judge_bit) pairs.
+
+    Corrects raw agreement for the agreement expected by chance. Returns nan when
+    undefined (no pairs, or both raters never vary).
+    """
+    n = len(pairs)
+    if n == 0:
+        return float("nan")
+    agree = sum(1 for h, j in pairs if h == j)
+    po = agree / n
+    h_yes = sum(h for h, _ in pairs) / n
+    j_yes = sum(j for _, j in pairs) / n
+    pe = h_yes * j_yes + (1 - h_yes) * (1 - j_yes)
+    if pe == 1:
+        return float("nan")
+    return (po - pe) / (1 - pe)
+
+
+def judge_human_agreement(
+    experiment_names,
+    client=None,
+    human_source_types: tuple = ("app",),
+    criteria=None,
+):
+    """Per criterion agreement between the LLM judge and human annotations.
+
+    Validates the judge: for every run the human annotated in a LangSmith queue,
+    line up the human's pass/fail against the judge's on the same criterion and
+    report the match rate. High agreement means the judge can be trusted to scale
+    to runs the human did not label; low agreement flags a criterion whose
+    definition in judge.CRITERIA needs sharpening.
+
+    Reads feedback from the given experiment session name(s). Feedback whose
+    source type is in human_source_types (LangSmith app annotations) is the human
+    label; any other source (the evaluators) is the judge. Only runs/criteria
+    scored by both are compared. Returns a DataFrame: criterion, agreement, kappa,
+    n. Empty until annotations exist.
+    """
+    from collections import defaultdict
+
+    import pandas as pd
+    from langsmith import Client
+
+    client = client or Client()
+    if isinstance(experiment_names, str):
+        experiment_names = [experiment_names]
+
+    run_ids = []
+    for name in experiment_names:
+        run_ids += [r.id for r in client.list_runs(project_name=name, is_root=True)]
+    if not run_ids:
+        return pd.DataFrame(columns=["criterion", "agreement", "kappa", "n"])
+
+    human, judge = {}, {}
+    for fb in client.list_feedback(run_ids=run_ids):
+        source_type = getattr(getattr(fb, "feedback_source", None), "type", None)
+        key = (fb.run_id, fb.key)
+        if source_type in human_source_types:
+            human[key] = fb.score
+        else:
+            judge[key] = fb.score
+
+    pairs_by_criterion = defaultdict(list)
+    for (run_id, crit), h_score in human.items():
+        if criteria and crit not in criteria:
+            continue
+        if (run_id, crit) not in judge:
+            continue
+        h_bit, j_bit = _to_bit(h_score), _to_bit(judge[(run_id, crit)])
+        if h_bit is None or j_bit is None:
+            continue
+        pairs_by_criterion[crit].append((h_bit, j_bit))
+
+    rows = []
+    for crit, pairs in sorted(pairs_by_criterion.items()):
+        n = len(pairs)
+        agreement = sum(1 for h, j in pairs if h == j) / n if n else float("nan")
+        rows.append(
+            {
+                "criterion": crit,
+                "agreement": agreement,
+                "kappa": _cohen_kappa(pairs),
+                "n": n,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def roi_table(results_by_model: dict, client=None):
+    """Per model averages for latency, tokens, and cost, read from LangSmith.
+
+    The in-memory experiment frame does not always carry latency and cost, so
+    this reads the root run of each experiment session directly: LangSmith rolls
+    token usage and dollar cost up to the root (the agent invocation), and
+    start/end times give latency. The judge's calls are separate evaluator runs,
+    not under these roots, so this is the agent's cost, which is what the ROI
+    argument needs. Returns a DataFrame with one column per model.
+    """
+    import pandas as pd
+    from langsmith import Client
+
+    client = client or Client()
+    cols = {}
+    for model, exp in results_by_model.items():
+        name = getattr(exp, "experiment_name", None)
+        if name is None:
+            continue
+        latencies, tokens, costs = [], [], []
+        for run in client.list_runs(project_name=name, is_root=True):
+            if run.start_time and run.end_time:
+                latencies.append((run.end_time - run.start_time).total_seconds())
+            if run.total_tokens is not None:
+                tokens.append(run.total_tokens)
+            if run.total_cost is not None:
+                costs.append(float(run.total_cost))
+
+        col = {}
+        if latencies:
+            col["avg_latency_s"] = sum(latencies) / len(latencies)
+        if tokens:
+            col["avg_total_tokens"] = sum(tokens) / len(tokens)
+        if costs:
+            col["avg_cost_usd"] = sum(costs) / len(costs)
+            col["total_cost_usd"] = sum(costs)
+        cols[model] = col
+
+    return pd.DataFrame(cols)
+
+
 def summarize_results(results_by_model: dict):
     """Per model mean of every numeric feedback score, as a DataFrame.
 
