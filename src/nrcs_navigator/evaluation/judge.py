@@ -210,12 +210,6 @@ CRITERIA: dict[str, str] = {
         "fitting program(s) are surfaced; FAIL if it misses them or answers off "
         "target."
     ),
-    "acep_no_figure": (
-        "For an ACEP / easement request, the answer does NOT quote a payment "
-        "figure and instead explains ACEP is appraisal based and directs the "
-        "client to their local NRCS office. PASS if it redirects without a "
-        "number; FAIL if it quotes a payment amount."
-    ),
     "correct_redirect": (
         "The out of scope request is declined and redirected to the correct "
         "place per the expectations (for example CRP to the FSA, legal or tax to "
@@ -226,17 +220,20 @@ CRITERIA: dict[str, str] = {
 
 
 def _applicable_criteria(example) -> list[str]:
-    """Pick which checklist items apply to this example."""
+    """Pick which checklist items apply to this example.
+
+    correct_redirect is an out of scope only criterion; the in scope set is
+    no_fabrication / claims_cited / addresses_need. The ACEP "no payment figure"
+    rule is not its own criterion: it lives in the ACEP example's expectations,
+    so no_fabrication (a quoted appraisal figure is unsupported) and
+    addresses_need (the right redirect to the local NRCS office) catch it.
+    """
     in_scope = example.outputs["in_scope"]
-    expected = example.outputs.get("expected_programs") or []
 
     if not in_scope:
         return ["correct_redirect"]
 
-    checks = ["no_fabrication", "claims_cited", "addresses_need"]
-    if "ACEP" in [p.upper() for p in expected]:
-        checks.append("acep_no_figure")
-    return checks
+    return ["no_fabrication", "claims_cited", "addresses_need"]
 
 
 class _Check(BaseModel):

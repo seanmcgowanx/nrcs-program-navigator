@@ -95,9 +95,11 @@ EVAL_EXAMPLES: list[dict] = [
         "expected_tools": ["eligibility_screener"],
         "expectations": (
             "Surfaces ACEP as the easement program. Critically, does NOT quote a "
-            "payment figure for ACEP: explains ACEP is appraisal based and the "
-            "client should get a valuation from their local NRCS office. May cite "
-            "ACEP eligibility regulations."
+            "payment figure for ACEP: any specific easement dollar amount is "
+            "unsupported, because ACEP is appraisal based and the client should "
+            "get a valuation from their local NRCS office. A good answer redirects "
+            "to the local NRCS office for valuation. May cite ACEP eligibility "
+            "regulations."
         ),
     },
     {
