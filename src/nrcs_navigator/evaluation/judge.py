@@ -98,7 +98,8 @@ def scope_adherence(run, example) -> Optional[dict]:
     """
     in_scope = example.outputs["in_scope"]
     if in_scope is None:
-        return None
+        # Ambiguous example (e.g. clarifying follow up expected); null score = skip.
+        return {"key": "scope_adherence", "score": None, "comment": "n/a (ambiguous scope)"}
 
     tool_calls = run.outputs.get("tool_calls", [])
     used_a_tool = len(tool_calls) > 0
