@@ -1,12 +1,12 @@
 """
 Tool: payment_estimator (table query)
 
-Returns historical payment benchmarks for ALL conservation programs in a
-specified state using the payment_rates table.
+Returns historical NRCS conservation-program funding statistics for a
+specified state, grouped by program and fiscal year.
 
-This tool is designed to provide the LLM with full funding history context
-across programs and fiscal years so it can perform comparisons, trends,
-and reasoning without needing multiple tool calls.
+This tool provides multi-year funding history across programs so the
+agent can compare trends, program activity, and relative funding levels
+within a state using a single query.
 
 Type:
     SQL query (no live network, no LLM)
@@ -19,7 +19,8 @@ Responsibilities:
     - Accept a state as input.
     - Retrieve all programs with payment data for that state.
     - Aggregate funding by program and fiscal year.
-    - Compute total dollars, total instances, and average payment.
+    - Compute total dollars obligated, total instances, and average dollars
+      obligated per instance.
     - Return structured, LLM-friendly nested output.
     - Return a clear message when no data exists.
 
@@ -61,7 +62,16 @@ from nrcs_navigator.data import db
 
 def get_payment_estimate_by_state(state: str) -> dict:
     """
-    Retrieve all payment benchmarks for all programs in a given state.
+    Retrieve historical NRCS funding statistics for all conservation
+    programs in a state.
+
+    Results are grouped by program and fiscal year and include:
+
+    - total dollars obligated
+    - total instances recorded
+    - average dollars obligated per instance
+
+    Data comes from the payment_rates table.
     """
 
     try:
@@ -152,8 +162,15 @@ def get_payment_estimate_by_state(state: str) -> dict:
 @tool
 def payment_estimator(state: str) -> dict:
     """
-    Retrieve historical payment benchmarks for ALL conservation
+    Retrieve historical NRCS funding statistics for all conservation
     programs in a specified state.
+
+    Use this tool when comparing program activity, funding levels,
+    or historical payment trends within a state.
+
+    Returns program-by-program and fiscal-year funding summaries,
+    including total dollars obligated, total instances, and average
+    dollars obligated per instance.
     """
 
     return get_payment_estimate_by_state(state)

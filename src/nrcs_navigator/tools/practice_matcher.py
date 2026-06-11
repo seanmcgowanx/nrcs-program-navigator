@@ -60,8 +60,9 @@ def get_practice_standards(
     html_path: str = "nrcs_debug.html",
 ) -> dict:
     """
-    Scrape the NRCS Conservation Practice Standards page and return
-    structured practice data.
+    Scrape the NRCS Conservation Practice Standards index and return
+    the complete catalog of current conservation practice standards,
+    including practice names, codes, and URLs.
     """
 
     try:
@@ -146,7 +147,11 @@ def get_practice_standards(
 @tool
 def practice_matcher() -> dict:
     """
-    Retrieve current NRCS conservation practice standards and codes.
+    Retrieve the current NRCS conservation practice standards index,
+    including practice names, practice codes, and source URLs.
+
+    Returns the complete practice catalog for downstream matching
+    and recommendation logic.
     """
 
     return get_practice_standards()
