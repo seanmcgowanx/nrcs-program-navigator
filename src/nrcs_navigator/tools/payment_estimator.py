@@ -33,6 +33,7 @@ Output:
     {
         "status": "success",
         "state": "Iowa",
+        "source": "https://www.farmers.gov/data/financial-assistance-download",
         "programs": {
             "EQIP": [
                 {
@@ -58,6 +59,11 @@ from langchain_core.tools import tool
 from sqlalchemy import text
 
 from nrcs_navigator.data import db
+
+# Where this payment data originates: the farmers.gov financial assistance
+# download, the NRCS Practice FIPS export loaded into the payment_rates table by
+# data/fips_payments.py. The agent cites this page as the source.
+SOURCE = "https://www.farmers.gov/data/financial-assistance-download"
 
 
 def get_payment_estimate_by_state(state: str) -> dict:
@@ -115,6 +121,7 @@ def get_payment_estimate_by_state(state: str) -> dict:
             return {
                 "status": "not_found",
                 "state": state,
+                "source": SOURCE,
                 "programs": {},
                 "message": "No payment data found for this state.",
             }
@@ -146,6 +153,7 @@ def get_payment_estimate_by_state(state: str) -> dict:
         return {
             "status": "success",
             "state": state,
+            "source": SOURCE,
             "programs": programs,
         }
 
@@ -154,6 +162,7 @@ def get_payment_estimate_by_state(state: str) -> dict:
         return {
             "status": "error",
             "state": state,
+            "source": SOURCE,
             "message": str(e),
             "programs": {},
         }

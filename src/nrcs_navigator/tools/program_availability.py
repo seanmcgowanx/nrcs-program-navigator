@@ -26,6 +26,7 @@ Output:
     {
         "status": "success",
         "state": "Iowa",
+        "source": "https://www.nrcs.usda.gov/ranking-dates",  # page scraped
         "program_count": 5,
         "available_program_codes": [
             "ACEP",
@@ -196,6 +197,7 @@ def get_program_availability(
             return {
                 "status": "error",
                 "state": state,
+                "source": RANKING_DATES_URL,
                 "message": f"State '{state}' not found.",
                 "program_count": 0,
                 "available_program_codes": [],
@@ -250,6 +252,9 @@ def get_program_availability(
         return {
             "status": "success",
             "state": state,
+            # The ranking dates page this data was scraped from, so the agent can
+            # cite where the deadlines came from.
+            "source": RANKING_DATES_URL,
             "program_count": len(programs),
             "available_program_codes": sorted(
                 set(available_program_codes)
@@ -262,6 +267,7 @@ def get_program_availability(
         return {
             "status": "error",
             "state": state,
+            "source": RANKING_DATES_URL,
             "message": str(e),
             "program_count": 0,
             "available_program_codes": [],

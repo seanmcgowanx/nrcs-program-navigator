@@ -67,7 +67,9 @@ conservation programs in a specified state, including total dollars \
 obligated, total instances, and average dollars obligated per instance \
 by program and fiscal year. Use these benchmarks to estimate potential \
 payment ranges and compare funding levels across programs. These figures \
-are historical indicators, not guaranteed future payments.
+are historical indicators, not guaranteed future payments. ACEP payment figures \
+are not returned by this tool. Inquiries about ACEP payouts should be redirected \
+to a local NRCS office.
   - program_availability: Determines which NRCS conservation programs currently \
 have ranking dates published for a specific state by scraping the NRCS \
 Ranking Dates page.

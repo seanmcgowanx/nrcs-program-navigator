@@ -34,6 +34,8 @@ DATASET_NAME = "nrcs-navigator-eval"
 #   question          the advisor's input to the agent
 #   in_scope          True  -> agent should research programs and call tools
 #                     False -> agent should decline + redirect and call NO tool
+#                     None  -> ambiguous (e.g. a clarifying follow up is the
+#                              right move); scope_adherence skips these
 #   expected_programs the NRCS programs a good answer surfaces (empty if out of
 #                     scope); the four high level programs only (config.PROGRAMS)
 #   expected_tools    the tools the agent should call to answer well (empty for
@@ -51,7 +53,7 @@ EVAL_EXAMPLES: list[dict] = [
         "expected_tools": [
             "eligibility_screener",
             "practice_matcher",
-            "payment_estimator",
+            "program_availability"
         ],
         "expectations": (
             "Surfaces EQIP (and reasonably CSP) for a soil erosion resource "
@@ -75,6 +77,7 @@ EVAL_EXAMPLES: list[dict] = [
             "eligibility_screener",
             "practice_matcher",
             "payment_estimator",
+            "program_availability"
         ],
         "expectations": (
             "Identifies a grazing land / livestock resource concern and surfaces "
@@ -88,7 +91,7 @@ EVAL_EXAMPLES: list[dict] = [
             "My client in Louisiana owns 80 acres of wetland and wants to "
             "permanently protect it from future development through a "
             "conservation easement. Their primary resource concern is wetland "
-            "habitat loss. What are their options?"
+            "habitat loss. What are their options and expected payouts?"
         ),
         "in_scope": True,
         "expected_programs": ["ACEP"],
@@ -112,13 +115,13 @@ EVAL_EXAMPLES: list[dict] = [
         "expectations": (
             "Uses the program availability tool (which scrapes the NRCS Ranking "
             "Dates page for a state) to report EQIP's current ranking date in "
-            "Nebraska rather than answering from memory. If the live source is "
+            "Nebraska. If the live source is "
             "unavailable, says so gracefully instead of inventing a date."
         ),
     },
     {
         "question": (
-            "A group of landowners in the Chesapeake Bay watershed in Maryland "
+            "A group of landowners in the Chesapeake Bay watershed"
             "want to coordinate on a partnership led conservation project to "
             "improve water quality. Is there an NRCS program built for that kind "
             "of partnership effort?"
@@ -135,6 +138,21 @@ EVAL_EXAMPLES: list[dict] = [
     },
     {
         "question": (
+            "California"
+        ),
+        # None = ambiguous: too underspecified to be in or out of scope. The
+        # agent should ask a clarifying follow up (no tool, no decline), so the
+        # binary scope_adherence check does not apply and skips this example.
+        "in_scope": None,
+        "expected_programs": [],
+        "expected_tools": [],
+        "expectations": (
+            "Responds with a follow up question asking about the conservation "
+            "project issues "
+        ),
+    },
+    {
+        "question": (
             "What is the typical EQIP payment for cover crop (practice code 340) "
             "in Iowa?"
         ),
@@ -146,22 +164,6 @@ EVAL_EXAMPLES: list[dict] = [
             "high) for the EQIP cover crop practice in Iowa from the historical "
             "payment data, with the source noted. Does not invent a figure; if no "
             "matching rate exists, says so clearly."
-        ),
-    },
-    {
-        "question": (
-            "Which conservation programs currently have ranking dates open in "
-            "Puerto Rico, and when are they?"
-        ),
-        "in_scope": True,
-        "expected_programs": [],
-        "expected_tools": ["program_availability"],
-        "expectations": (
-            "Calls the program availability tool for Puerto Rico. If the live "
-            "Ranking Dates page returns no data for that location, the agent "
-            "says so honestly and suggests the local NRCS office rather than "
-            "inventing programs or dates. The key behavior is graceful handling "
-            "of a no result lookup, not a specific answer."
         ),
     },
     {

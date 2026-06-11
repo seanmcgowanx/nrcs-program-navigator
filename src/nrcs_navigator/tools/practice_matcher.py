@@ -21,12 +21,13 @@ Responsibilities:
 Output:
     {
         "status": "success",
+        "source": "https://www.nrcs.usda.gov/...",  # page the catalog was scraped from
         "practice_count": 167,
         "practices": [
             {
                 "name": "Conservation Cover",
                 "code": "327",
-                "url": "https://www.nrcs.usda.gov/..."
+                "url": "https://www.nrcs.usda.gov/..."  # this practice's detail page
             }
         ]
     }
@@ -130,6 +131,10 @@ def get_practice_standards(
 
         return {
             "status": "success",
+            # The page this catalog was scraped from, so the agent can cite where
+            # the practice data came from. Distinct from each practice's own
+            # `url`, which is a link to that practice's detail page, not a source.
+            "source": NRCS_URL,
             "practice_count": len(practices),
             "practices": practices,
         }
@@ -138,6 +143,7 @@ def get_practice_standards(
 
         return {
             "status": "error",
+            "source": NRCS_URL,
             "message": str(e),
             "practice_count": 0,
             "practices": [],

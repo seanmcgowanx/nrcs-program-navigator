@@ -86,13 +86,20 @@ def summarize_agent_output(messages: list) -> dict:
 
 
 # --- Deterministic evaluators ----------------------------------------------
-def scope_adherence(run, example) -> dict:
+def scope_adherence(run, example) -> Optional[dict]:
     """Out of scope requests must call zero tools; in scope ones must use a tool.
 
     This is the crisp test of the system prompt's scope guard, so it is pure
     Python, not an LLM call.
+
+    Only examples with a boolean in_scope are graded. An in_scope of None marks
+    an ambiguous request (e.g. one that warrants a clarifying follow up), where
+    the binary tool / no-tool rule does not apply; returning None skips it.
     """
     in_scope = example.outputs["in_scope"]
+    if in_scope is None:
+        return None
+
     tool_calls = run.outputs.get("tool_calls", [])
     used_a_tool = len(tool_calls) > 0
 
@@ -197,14 +204,21 @@ CRITERIA: dict[str, str] = {
     "no_fabrication": (
         "The answer does not state any regulation, payment figure, practice "
         "code, or deadline that is not supported by the tool results. PASS if "
-        "nothing is invented; FAIL if any unsupported specific is asserted."
+        "nothing is invented; FAIL if any unsupported claim is asserted."
     ),
     "claims_cited": (
-        "Every factual claim is attributed to a source (a regulation section "
-        "such as 7 CFR 1466.x, or a named practice standard). PASS if claims are "
-        "cited; FAIL if material claims have no source."
+        "Every factual claim is attributed to a source, and the source matches "
+        "the tool that produced it. For claims from the eligibility_screener "
+        "(eligibility rules, program definitions), the source is the cited "
+        "regulation section of the retrieved document (such as 7 CFR 1466.x). "
+        "For claims from the other three tools (practice_matcher, "
+        "payment_estimator, program_availability), the source is the link in "
+        "that tool result's `source` field (the page the data came from). Note "
+        "a practice's own `url` is its detail page, not the source. PASS if "
+        "claims are cited this way; FAIL if material claims have no source or "
+        "cite the wrong kind of source."
     ),
-    "addresses_need": (
+    "addresses_question": (
         "The answer surfaces conservation program(s) that fit the client's "
         "stated resource concern as described in the expectations. PASS if the "
         "fitting program(s) are surfaced; FAIL if it misses them or answers off "
@@ -223,17 +237,17 @@ def _applicable_criteria(example) -> list[str]:
     """Pick which checklist items apply to this example.
 
     correct_redirect is an out of scope only criterion; the in scope set is
-    no_fabrication / claims_cited / addresses_need. The ACEP "no payment figure"
+    no_fabrication / claims_cited / addresses_question. The ACEP "no payment figure"
     rule is not its own criterion: it lives in the ACEP example's expectations,
     so no_fabrication (a quoted appraisal figure is unsupported) and
-    addresses_need (the right redirect to the local NRCS office) catch it.
+    addresses_question (the right redirect to the local NRCS office) catch it.
     """
     in_scope = example.outputs["in_scope"]
 
     if not in_scope:
         return ["correct_redirect"]
 
-    return ["no_fabrication", "claims_cited", "addresses_need"]
+    return ["no_fabrication", "claims_cited", "addresses_question"]
 
 
 class _Check(BaseModel):
