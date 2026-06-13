@@ -24,8 +24,8 @@ set; no explicit logging code is required here.
 
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.prebuilt import create_react_agent
-from psycopg import Connection
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from nrcs_navigator.agent import llms, prompts
 from nrcs_navigator.data import db
@@ -44,18 +44,37 @@ TOOLS = [eligibility_screener, payment_estimator, practice_matcher, program_avai
 def _checkpointer() -> PostgresSaver:
     """A LangGraph Postgres checkpointer on the shared database.
 
-    The saver manages its own checkpoint tables through a raw psycopg connection
-    (separate from the SQLAlchemy engine). autocommit and prepare_threshold=0
-    are what the saver expects, and dict_row is the row format it reads; setup()
-    creates its tables on first use and is idempotent thereafter.
+    Backed by a connection pool rather than a single long-lived connection. The
+    database is serverless (Neon), so it drops idle connections and suspends
+    compute between requests; a single connection opened at startup goes stale
+    while a user reads a reply, and the next message then hangs on a half-open
+    socket. The pool checks each connection before lending it (reconnecting dead
+    ones) and recycles idle connections before the server would drop them, so a
+    later message in a conversation reconnects transparently. The pool also gives
+    each request in FastAPI's threadpool its own connection, since a psycopg
+    connection is not safe to share across threads.
+
+    autocommit, prepare_threshold=0, and dict_row are what PostgresSaver expects
+    of its connections; setup() creates the checkpoint tables on first use and is
+    idempotent thereafter.
     """
-    conn = Connection.connect(
-        db.psycopg_url(),
-        autocommit=True,
-        prepare_threshold=0,
-        row_factory=dict_row,
+    pool = ConnectionPool(
+        conninfo=db.psycopg_url(),
+        min_size=1,
+        max_size=4,
+        # Recycle connections that have been idle longer than this (seconds),
+        # comfortably under the serverless idle-drop window.
+        max_idle=120,
+        # Validate a connection (and reconnect if dead) before handing it out.
+        check=ConnectionPool.check_connection,
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": 0,
+            "row_factory": dict_row,
+        },
+        open=True,
     )
-    saver = PostgresSaver(conn)
+    saver = PostgresSaver(pool)
     saver.setup()
     return saver
 

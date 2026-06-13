@@ -26,3 +26,15 @@ services:
       # --- Non-secret config (safe to keep here) ---
       - key: PREMIER_MODEL
         value: gpt-4o
+      # --- LangSmith tracing (optional observability) ---
+      # Tracing stays off until BOTH the flag and the key are set in the
+      # dashboard, so the service runs fine with these blank. Set them together
+      # to capture production traces (per-tool latency, recursion trips, errors).
+      - key: LANGCHAIN_TRACING_V2 # set to "true" to enable
+        sync: false
+      - key: LANGCHAIN_API_KEY # your LangSmith key
+        sync: false
+      - key: LANGCHAIN_PROJECT
+        value: nrcs-navigator
+      - key: LANGCHAIN_ENDPOINT
+        value: https://api.smith.langchain.com

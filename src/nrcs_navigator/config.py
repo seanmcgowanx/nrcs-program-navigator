@@ -95,6 +95,13 @@ JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "gpt-4o-mini")
 # traces and consistent tool calling.
 AGENT_TEMPERATURE = 0.0
 
+# Hard cap on ReAct loop steps for a single turn (LangGraph's recursion_limit).
+# Bounds how many tool calls and model turns the agent may take before it must
+# answer, so a confused loop fails fast with a clear error instead of running up
+# latency and token cost. One full reason / act / observe cycle is a few steps,
+# so this allows several tool calls per turn while still capping runaway loops.
+AGENT_RECURSION_LIMIT = 12
+
 # Embedding model for the eCFR vector store (the eligibility_screener's RAG).
 # Decided: OpenAI text-embedding-3-small. A fixed constant, not an env var --
 # the stored vectors are this model's 1536-wide output and the query text must

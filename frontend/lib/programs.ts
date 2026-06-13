@@ -30,11 +30,14 @@ export const PROGRAMS: Program[] = [
   },
 ];
 
-// Realistic advisor prompts describing a client operation in plain language.
-// Each leans toward a different program so the examples cover the catalog.
+// Advisor prompts taken verbatim from the in scope evaluation set
+// (src/nrcs_navigator/evaluation/datasets.py), chosen to span all four
+// programs: EQIP (erosion), CSP (grazing), ACEP (easement), RCPP (partnership).
+// Using the eval questions keeps the demo aligned with what the agent is graded
+// on.
 export const EXAMPLE_PROMPTS: string[] = [
-  "A client runs 180 acres of irrigated almonds in Stanislaus County, California and wants to cut water use.",
-  "Rancher with 1,200 acres of native grazing land in Harding County, New Mexico, interested in rotational grazing support.",
-  "Dairy operation in Tillamook County, Oregon looking to fund a waste storage facility and clean water.",
-  "Landowner wants to place 60 acres of restored wetland into a long term easement.",
+  "I have a client with about 300 acres of corn and soybean cropland in Iowa. They're losing topsoil to sheet and rill erosion and want help addressing it. What programs fit?",
+  "A client runs a cattle operation on 500 acres of grazing land in Texas. Their primary resource concern is degraded grazing land health (overgrazed pasture and poor forage), and they want to improve it with rotational grazing. What practices and payments could apply?",
+  "My client in Louisiana owns 80 acres of wetland and wants to permanently protect it from future development through a conservation easement. Their primary resource concern is wetland habitat loss. What are their options and expected payouts?",
+  "A group of landowners in the Chesapeake Bay watershed want to coordinate on a partnership led conservation project to improve water quality. Is there an NRCS program built for that kind of partnership effort?",
 ];

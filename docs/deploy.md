@@ -88,7 +88,9 @@ Python environment cannot install Chromium's system libraries.
    - `NRCS_PRACTICE_STANDARDS_URL` - same value as your `.env`
    - `NRCS_RANKING_DATES_URL` - same value as your `.env`
    - `FRONTEND_ORIGINS` - leave as a placeholder for now (e.g. `http://localhost:3000`); update it in Phase 5 once the Vercel URL exists
-   `PREMIER_MODEL` is already set to `gpt-4o` in `render.yaml`.
+   `PREMIER_MODEL` is already set to `gpt-4o` in `render.yaml`. The
+   `LANGCHAIN_*` variables are optional; leave them blank unless you are turning
+   on tracing (see Phase 6).
 4. Deploy. The first build pulls dependencies and Chromium, so it takes a few
    minutes. When the health check at `/health` passes, the service is live. Note
    the URL, e.g. `https://nrcs-navigator-api.onrender.com`.
@@ -146,6 +148,53 @@ https://cron-job.org hitting the same `/health` URL every 10 minutes.
 
 ---
 
+## Phase 6 - Tracing with LangSmith (optional)
+
+Tracing captures each agent run (per tool latency, recursion trips, errors),
+which is the fastest way to see where a slow or failing turn spends its time. It
+needs no code change; LangGraph instruments itself when the environment is set.
+
+1. Create a key at https://smith.langchain.com (Settings > API Keys).
+2. On Render, set both of these (the other two LangSmith variables already carry
+   values in `render.yaml`):
+   - `LANGCHAIN_TRACING_V2` = `true`
+   - `LANGCHAIN_API_KEY` = your LangSmith key
+3. Redeploy. Runs appear in the `nrcs-navigator` project in LangSmith.
+
+Leave both unset to keep tracing off; the service runs the same either way. Note
+that traces include the conversation content (the client operation descriptions)
+and are stored in LangSmith's cloud. To trace local runs too, put the same
+variables in your `.env`.
+
+---
+
+## Making changes after launch
+
+Both services redeploy from GitHub, so the loop is push based.
+
+**Backend (Render, Docker).**
+1. Edit locally. Test against the real database before pushing by pointing your
+   local `.env` `DATABASE_URL` at Neon and running
+   `poetry run uvicorn nrcs_navigator.serving.app:app --reload`. For full
+   container parity, `docker build -t nrcs-navigator-api . && docker run` it.
+2. Commit and push. Render rebuilds the image and redeploys automatically (the
+   Blueprint enables auto deploy). The `/health` check gates the cutover, so a
+   bad build does not replace a working one. Watch progress in the Render logs.
+
+**Frontend (Vercel).**
+1. Edit locally and run `npm run dev` (point `.env.local` at the deployed or a
+   local backend).
+2. Commit and push. Vercel rebuilds and deploys automatically, with a preview
+   URL per branch.
+
+For risky changes, push to a branch and use the preview deploys rather than
+pushing straight to the deployed branch. Changing a dependency means the
+`requirements.txt` export must be regenerated
+(`poetry export --only main --without-hashes -o requirements.txt`) and committed,
+since the Docker image installs from it, not from `poetry.lock`.
+
+---
+
 ## Operating notes
 
 - **Updating data.** Re run the Phase 2 command against Neon whenever the FIPS
@@ -162,4 +211,3 @@ https://cron-job.org hitting the same `/health` URL every 10 minutes.
   config. (The embedding model is fixed and unaffected.)
 - **Rotating the database.** If the Neon string changes, update `DATABASE_URL`
   on Render and rerun Phase 2 against the new database before cutting over.
-```

@@ -154,7 +154,10 @@ def get_program_availability(
             page.goto(
                 RANKING_DATES_URL,
                 wait_until="networkidle",
-                timeout=120000,
+                # Bounded so a page that never reaches network idle fails fast
+                # into the except below (a structured error the agent can handle)
+                # instead of blocking the request for two minutes.
+                timeout=45000,
             )
 
             page.evaluate(

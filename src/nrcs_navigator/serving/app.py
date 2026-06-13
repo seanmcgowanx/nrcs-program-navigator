@@ -24,15 +24,19 @@ Request and response shapes (illustrative):
 App only. The reasoning lives in agent/graph.py; the tools live in tools/.
 """
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
 from nrcs_navigator import config
 from nrcs_navigator.agent.graph import build_agent
+
+logger = logging.getLogger("nrcs_navigator.serving")
 
 # The agent is built once on startup and reused across requests (it holds the
 # Postgres checkpointer connection). Stored on app.state via the lifespan below.
@@ -95,10 +99,36 @@ def chat(req: ChatRequest) -> ChatResponse:
     The thread_id is the session_id, so the checkpointer resumes the same
     conversation (the elicitation flow and elicited client profile) on every
     call with that id. A new session_id starts a fresh conversation.
+
+    The recursion_limit caps the ReAct loop so a confused agent fails fast rather
+    than running up latency. A trip is turned into a plain reply (the user gets
+    guidance, not an error bubble); any other failure becomes a 503 so the
+    frontend can show its error state and offer a retry.
     """
-    result = _agent.invoke(
-        {"messages": [("user", req.message)]},
-        config={"configurable": {"thread_id": req.session_id}},
-    )
+    try:
+        result = _agent.invoke(
+            {"messages": [("user", req.message)]},
+            config={
+                "configurable": {"thread_id": req.session_id},
+                "recursion_limit": config.AGENT_RECURSION_LIMIT,
+            },
+        )
+    except GraphRecursionError:
+        logger.warning("recursion limit hit for session %s", req.session_id)
+        return ChatResponse(
+            session_id=req.session_id,
+            reply=(
+                "I wasn't able to pull this together in time. Try narrowing the "
+                "request, for example a single program or one practice, and "
+                "include the client's state and operation type."
+            ),
+        )
+    except Exception:
+        logger.exception("agent invoke failed for session %s", req.session_id)
+        raise HTTPException(
+            status_code=503,
+            detail="The navigator service hit an error handling that message.",
+        )
+
     reply = result["messages"][-1].content
     return ChatResponse(session_id=req.session_id, reply=reply)
