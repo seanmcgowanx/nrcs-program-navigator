@@ -1,0 +1,30 @@
+# Keeps the Render free-tier backend awake by pinging GET /health on a
+# schedule, so it never spins down and a real user request never pays the
+# ~30s cold-boot. /health touches no database or LLM, so each ping is free.
+#
+# Setup: add a repository secret BACKEND_HEALTH_URL pointing at the deployed
+# health endpoint, e.g. https://nrcs-navigator-api.onrender.com/health
+#
+# Note on Actions minutes: scheduled runs are billed per started minute. On a
+# PUBLIC repo this is free. On a PRIVATE repo a 10-minute cadence (~4300
+# runs/month) exceeds the 2000 free minutes -- in that case prefer an external
+# pinger such as cron-job.org hitting the same /health URL.
+name: keep-warm
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub may delay scheduled runs under load; 10 min
+    # leaves headroom under Render's ~15 min idle spin-down.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /health
+        run: |
+          curl --fail --silent --show-error \
+               --retry 3 --retry-delay 10 --max-time 60 \
+               "${{ secrets.BACKEND_HEALTH_URL }}"

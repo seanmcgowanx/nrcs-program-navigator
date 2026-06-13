@@ -1,0 +1,165 @@
+# Deployment runbook
+
+How to take the navigator live on free services: a Neon Postgres database, the
+FastAPI backend on Render (Docker), and the Next.js frontend on Vercel. Follow
+the phases in order. The ordering matters: the backend connects to the database
+on startup, so the database must exist and hold data before the backend deploys.
+
+Final shape:
+
+| Layer | Service | Notes |
+|-------|---------|-------|
+| Database | Neon (Postgres + pgvector) | Holds payment_rates, eCFR embeddings, checkpointer |
+| Backend | Render web service (Docker) | FastAPI, kept awake by a scheduled ping |
+| Frontend | Vercel (Next.js) | Calls the backend over HTTP |
+
+Prerequisites: an OpenAI API key, and the two NRCS source URLs already in your
+local `.env` (`NRCS_PRACTICE_STANDARDS_URL`, `NRCS_RANKING_DATES_URL`).
+
+---
+
+## Phase 1 - Provision the Neon database
+
+1. Create a free project at https://neon.tech. Note the connection string from
+   the dashboard (Connection Details). It looks like
+   `postgresql://USER:PASS@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require`.
+2. Convert it to the form this project expects by inserting the `+psycopg`
+   dialect tag after `postgresql`:
+   ```
+   postgresql+psycopg://USER:PASS@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
+   ```
+   Keep `sslmode=require` - Neon refuses non TLS connections. The checkpointer
+   helper (`db.psycopg_url`) strips the `+psycopg` tag but preserves `sslmode`.
+
+The `vector` extension does not need manual enabling here; `init_db()` runs
+`CREATE EXTENSION IF NOT EXISTS vector` in the next phase.
+
+---
+
+## Phase 2 - Load the data into Neon
+
+Run the existing pipeline locally, pointed at Neon. This is the same sequence
+`notebooks/01_data_pipeline.ipynb` performs, condensed to one command.
+
+1. Point your local `.env` at Neon:
+   ```
+   DATABASE_URL=postgresql+psycopg://USER:PASS@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
+   ```
+2. Build the schema, load payments, and embed the eCFR sections:
+   ```bash
+   poetry run python -c "
+   from nrcs_navigator.data import db, fips_payments, ecfr_loader, vectorstore
+   db.init_db()
+   rows = fips_payments.write(fips_payments.load_clean())
+   chunks = vectorstore.build_index(ecfr_loader.load_chunks())
+   print(f'loaded {rows} payment rows and embedded {chunks} eCFR chunks')
+   "
+   ```
+   The embedding step calls the OpenAI embeddings API, so `OPENAI_API_KEY` must
+   be set in `.env`. It is the slow step (it embeds every eCFR section once).
+3. Sanity check the live database path before touching any host. With `.env`
+   still pointing at Neon:
+   ```bash
+   poetry run uvicorn nrcs_navigator.serving.app:app --reload
+   # in another shell:
+   curl localhost:8000/health
+   curl -X POST localhost:8000/chat -H 'content-type: application/json' \
+     -d '{"session_id":"t1","message":"A client runs 180 acres of irrigated almonds in Stanislaus County, California and wants to cut water use."}'
+   ```
+   A grounded reply confirms the agent, the database, and the tools all work
+   against Neon. Send a second message with the same `session_id` to confirm the
+   conversation continues (checkpointer working).
+
+---
+
+## Phase 3 - Deploy the backend to Render
+
+The repo ships a `Dockerfile` (Chromium only Playwright image) and a
+`render.yaml` Blueprint. The backend must be a Docker service; Render's native
+Python environment cannot install Chromium's system libraries.
+
+1. Push the repo to GitHub if it is not there already.
+2. In Render, New > Blueprint, and point it at the repo. Render reads
+   `render.yaml` and proposes the `nrcs-navigator-api` web service (Docker, free
+   plan, health check at `/health`).
+3. Render prompts for the `sync: false` environment variables. Set:
+   - `OPENAI_API_KEY` - your key
+   - `DATABASE_URL` - the Neon string from Phase 1 (with `+psycopg` and `sslmode=require`)
+   - `NRCS_PRACTICE_STANDARDS_URL` - same value as your `.env`
+   - `NRCS_RANKING_DATES_URL` - same value as your `.env`
+   - `FRONTEND_ORIGINS` - leave as a placeholder for now (e.g. `http://localhost:3000`); update it in Phase 5 once the Vercel URL exists
+   `PREMIER_MODEL` is already set to `gpt-4o` in `render.yaml`.
+4. Deploy. The first build pulls dependencies and Chromium, so it takes a few
+   minutes. When the health check at `/health` passes, the service is live. Note
+   the URL, e.g. `https://nrcs-navigator-api.onrender.com`.
+5. Verify:
+   ```bash
+   curl https://nrcs-navigator-api.onrender.com/health
+   ```
+
+Notes:
+- Keep this at a single instance. The agent is built once on startup and holds
+  the checkpointer connection.
+- Free tier has 512 MB of memory. Normal chat is fine; the pressure point is a
+  scrape tool launching Chromium (roughly 200 MB more). If you see memory
+  related 502s during a scrape, move to the Starter plan (2 GB).
+
+---
+
+## Phase 4 - Keep the backend awake
+
+Render free spins the service down after about 15 minutes idle, and the next
+request then pays a cold boot. The repo ships
+`.github/workflows/keep-warm.yml`, which pings `/health` every 10 minutes.
+`/health` touches no database or model, so each ping is free.
+
+1. In the GitHub repo, add a secret `BACKEND_HEALTH_URL` set to the Render
+   health URL, e.g. `https://nrcs-navigator-api.onrender.com/health`
+   (Settings > Secrets and variables > Actions > New repository secret).
+2. The workflow runs on its schedule automatically. Trigger it once by hand from
+   the Actions tab (Run workflow) to confirm it returns success.
+
+Minutes caveat: scheduled Actions are billed per started minute. On a public
+repo this is free. On a private repo a 10 minute cadence (about 4,300 runs a
+month) exceeds the 2,000 free minutes, so instead use an external pinger such as
+https://cron-job.org hitting the same `/health` URL every 10 minutes.
+
+---
+
+## Phase 5 - Deploy the frontend to Vercel
+
+1. In Vercel, New Project, import the same repo, and set the Root Directory to
+   `frontend`. Vercel detects Next.js automatically.
+2. Add an environment variable:
+   - `NEXT_PUBLIC_API_URL` = the Render backend URL (no trailing slash), e.g.
+     `https://nrcs-navigator-api.onrender.com`
+3. Deploy. Note the Vercel URL, e.g. `https://nrcs-navigator.vercel.app`.
+4. Open the CORS gate for that origin. In Render, set the backend
+   `FRONTEND_ORIGINS` environment variable to the Vercel URL (comma separate if
+   there is more than one) and let it redeploy:
+   ```
+   FRONTEND_ORIGINS=https://nrcs-navigator.vercel.app
+   ```
+5. End to end check: open the Vercel URL, send a message, and confirm a reply.
+   Refresh the page and confirm the conversation continues (the session id is
+   stored in the browser and resumes the same thread).
+
+---
+
+## Operating notes
+
+- **Updating data.** Re run the Phase 2 command against Neon whenever the FIPS
+  export or the eCFR snapshot changes. The whole sequence is idempotent:
+  `init_db()` uses `IF NOT EXISTS`, `fips_payments.write` replaces the table
+  contents, and `vectorstore.build_index` rebuilds the embedding collection from
+  scratch (it sets `pre_delete=True`), so re running never stacks duplicates.
+- **Checkpoint growth.** The checkpointer never prunes old conversation state.
+  For a long lived deployment, add a retention job that deletes rows from the
+  `checkpoints` family older than some window.
+- **Switching the serving model.** The backend serves `PREMIER_MODEL` (`gpt-4o`).
+  To serve the cheaper leg, change that environment variable on Render to
+  `gpt-4o-mini`; no code change is needed because `build_agent` reads it through
+  config. (The embedding model is fixed and unaffected.)
+- **Rotating the database.** If the Neon string changes, update `DATABASE_URL`
+  on Render and rerun Phase 2 against the new database before cutting over.
+```

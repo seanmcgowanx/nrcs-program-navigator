@@ -1,0 +1,28 @@
+# Render Blueprint for the backend service. Import the repo in Render and it
+# reads this file. Secrets are marked sync:false so Render prompts for them in
+# the dashboard rather than reading them from the repo -- never commit values.
+services:
+  - type: web
+    name: nrcs-navigator-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    # The agent is built once at startup and holds the checkpointer connection,
+    # so keep this at a single instance / worker on the free tier.
+    envVars:
+      # --- Secrets: set these in the Render dashboard ---
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATABASE_URL # Neon connection string (postgresql+psycopg://...?sslmode=require)
+        sync: false
+      - key: NRCS_PRACTICE_STANDARDS_URL
+        sync: false
+      - key: NRCS_RANKING_DATES_URL
+        sync: false
+      # --- Frontend origin(s) for CORS; set to the Vercel URL ---
+      - key: FRONTEND_ORIGINS
+        sync: false
+      # --- Non-secret config (safe to keep here) ---
+      - key: PREMIER_MODEL
+        value: gpt-4o
