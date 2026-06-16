@@ -10,7 +10,7 @@ Final shape:
 | Layer | Service | Notes |
 |-------|---------|-------|
 | Database | Neon (Postgres + pgvector) | Holds payment_rates, eCFR embeddings, checkpointer |
-| Backend | Render web service (Docker) | FastAPI, kept awake by a scheduled ping |
+| Backend | Render web service (Docker) | FastAPI, kept awake by an external uptime monitor |
 | Frontend | Vercel (Next.js) | Calls the backend over HTTP |
 
 Prerequisites: an OpenAI API key, and the two NRCS source URLs already in your
@@ -111,20 +111,31 @@ Notes:
 ## Phase 4 - Keep the backend awake
 
 Render free spins the service down after about 15 minutes idle, and the next
-request then pays a cold boot. The repo ships
-`.github/workflows/keep-warm.yml`, which pings `/health` every 10 minutes.
-`/health` touches no database or model, so each ping is free.
+request then pays a cold boot (which surfaces to a user as a request that hangs
+and then 503s from the proxy). Keep it warm with an external uptime monitor that
+pings `/health` on a fixed interval. `/health` touches no database or model, so
+the pings are free.
 
-1. In the GitHub repo, add a secret `BACKEND_HEALTH_URL` set to the Render
-   health URL, e.g. `https://nrcs-navigator-api.onrender.com/health`
-   (Settings > Secrets and variables > Actions > New repository secret).
-2. The workflow runs on its schedule automatically. Trigger it once by hand from
-   the Actions tab (Run workflow) to confirm it returns success.
+Use UptimeRobot (free, includes downtime alerts):
 
-Minutes caveat: scheduled Actions are billed per started minute. On a public
-repo this is free. On a private repo a 10 minute cadence (about 4,300 runs a
-month) exceeds the 2,000 free minutes, so instead use an external pinger such as
-https://cron-job.org hitting the same `/health` URL every 10 minutes.
+1. Sign up at https://uptimerobot.com.
+2. Add New Monitor.
+3. Monitor Type: HTTP(s).
+4. Friendly Name: `NRCS Navigator keep-warm`.
+5. URL: `https://nrcs-navigator-api.onrender.com/health`
+6. Monitoring Interval: 5 minutes (the free minimum, comfortably under the
+   ~15 minute idle window).
+7. Create Monitor.
+
+A https://cron-job.org job hitting the same `/health` URL every 5 to 10 minutes
+works equally well as an alternative.
+
+Do not use GitHub Actions `schedule` for this. Scheduled workflows are
+best-effort and routinely fire far later than requested (10 minute cadences
+slipping to an hour or more), which is too loose for a 15 minute idle window. The
+repo contains `.github/workflows/keep-warm.yml` from an earlier approach; disable
+it (Actions tab > keep-warm > Disable workflow) so it does not run, and rely on
+the external monitor instead.
 
 ---
 

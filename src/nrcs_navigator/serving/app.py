@@ -84,10 +84,13 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict:
     """Liveness check. Intentionally cheap: no database or LLM call, so the
     keep-warm ping that hits this every few minutes costs nothing.
+
+    Accepts HEAD as well as GET because uptime monitors (the keep-warm pinger)
+    default to HEAD on their free tiers; a GET-only route answers those with 405.
     """
     return {"status": "ok"}
 
