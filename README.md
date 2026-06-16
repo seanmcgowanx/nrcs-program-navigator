@@ -17,9 +17,7 @@ A single LLM orchestrates four tools through a ReAct reasoning loop (Reason, Act
 | `payment_estimator` | SQL query | `payment_rates` table in Postgres (from the FIPS CSV, FY2023 to FY2025) |
 | `program_availability` | Live web scrape | NRCS Ranking Dates page |
 
-Scope handling is not a tool. The agent gracefully declines out of scope requests (CRP, which is FSA administered; legal or tax advice; unrelated chit chat) and redirects the user, all via its system prompt. The system prompt also drives a short elicitation flow that gathers the client profile (state, acreage, current practices, primary resource concern; county is optional since payment data is state level) across turns before screening.
-
-The multiple model requirement is satisfied at evaluation time by swapping the agent LLM (premier model vs. cheaper model) across traces. It is not a two LLM pipeline.
+The agent gracefully declines out of scope requests (CRP, which is FSA administered; legal or tax advice; unrelated chit chat) and redirects the user, all via its system prompt. The system prompt also drives a short elicitation flow that gathers the client profile (state, acreage, current practices, primary resource concern; county is optional since payment data is state level) across turns before screening.
 
 Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state). A FastAPI serving layer (`POST /chat`) wraps the agent so it can run as a service; `docker-compose.yml` brings up the database for local reproducibility.
 
