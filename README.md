@@ -35,7 +35,7 @@ The live demo runs that serving layer on Render (backend) and a Next.js frontend
 ├── render.yaml                 Render Blueprint for the backend service
 ├── .env.example                Template for API keys and settings (copy to .env)
 ├── .gitignore
-├── notebooks/                  Graded deliverables (run top to bottom)
+├── notebooks/                  Project notebooks (run top to bottom)
 │   ├── 01_data_pipeline.ipynb      Load CSV payments, fetch + embed eCFR
 │   ├── 02_agent_definition.ipynb   Assemble LLM + 4 tools + ReAct loop
 │   └── 03_evaluation_traces.ipynb  5 traces, LLM comparison, judge
@@ -80,7 +80,7 @@ Cleaned payments and embeddings are not kept on disk; they live in Postgres.
 
 ## Run it locally
 
-To just use the agent, open the [live demo](https://nrcs-program-navigator.vercel.app). The steps below are for reproducing the graded notebooks or running the pipeline yourself.
+To just use the agent, open the [live demo](https://nrcs-program-navigator.vercel.app). The steps below are for reproducing the notebooks or running the pipeline yourself.
 
 1. Install Poetry if you do not have it. Install it in isolation, not into a conda or project environment, so its own dependencies stay separate:
 
@@ -142,7 +142,7 @@ To just use the agent, open the [live demo](https://nrcs-program-navigator.verce
 | Data pipeline | `notebooks/01_data_pipeline.ipynb` |
 | Agent definition | `notebooks/02_agent_definition.ipynb` |
 | Evaluation traces | `notebooks/03_evaluation_traces.ipynb` |
-| Video presentation | (recorded separately, no AI usage) |
+| Video presentation | (recorded separately) |
 
 ## Scope note
 
