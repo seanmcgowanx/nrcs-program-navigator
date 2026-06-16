@@ -8,8 +8,8 @@ import Message from "./Message";
 import Composer from "./Composer";
 import EmptyState from "./EmptyState";
 import TypingIndicator from "./TypingIndicator";
-import { sendChat } from "@/lib/api";
-import type { ChatMessage } from "@/lib/types";
+import { streamChat } from "@/lib/api";
+import type { ChatMessage, TraceStep } from "@/lib/types";
 
 const SESSION_KEY = "nrcs-navigator-session";
 
@@ -21,10 +21,21 @@ export default function Chat() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
+  // Consecutive failed turns on the current session. After a couple, retrying
+  // the same session is unlikely to help (it may be wedged), so we steer the
+  // user toward starting fresh.
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+  // The tools running in the in-flight turn, shown live. Clears when the turn
+  // lands in `messages`. The answer itself is not shown until it is complete.
+  const [activeSteps, setActiveSteps] = useState<TraceStep[]>([]);
 
   const lastUserText = useRef<string>("");
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Mirror the streamed state in refs so the commit at the end reads the final
+  // values without waiting for a re-render.
+  const stepsRef = useRef<TraceStep[]>([]);
+  const replyRef = useRef("");
 
   // Restore (or mint) the session id from localStorage on the client only, so a
   // page refresh continues the same conversation thread on the backend.
@@ -41,50 +52,103 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
-  const run = useCallback(
-    async (text: string) => {
-      if (!sessionId) return;
-      lastUserText.current = text;
-      setSending(true);
-      abortRef.current = new AbortController();
-      try {
-        const reply = await sendChat(sessionId, text, abortRef.current.signal);
-        setMessages((m) => [
-          ...m,
-          { id: newSessionId(), role: "assistant", content: reply },
-        ]);
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return;
-        setMessages((m) => [
-          ...m,
-          {
-            id: newSessionId(),
-            role: "error",
-            content: (err as Error).message,
+  // Takes an explicit session id rather than reading it from state, so a fresh
+  // start can mint a new id and resend in the same tick without waiting for the
+  // async setSessionId to land.
+  const run = useCallback(async (text: string, sid: string) => {
+    lastUserText.current = text;
+    setSending(true);
+    setActiveSteps([]);
+    stepsRef.current = [];
+    replyRef.current = "";
+    abortRef.current = new AbortController();
+    try {
+      await streamChat(
+        sid,
+        text,
+        {
+          onStepStart: (id, label) => {
+            stepsRef.current = [...stepsRef.current, { id, label }];
+            setActiveSteps(stepsRef.current);
           },
-        ]);
-      } finally {
-        setSending(false);
-      }
-    },
-    [sessionId],
-  );
+          onStepEnd: (id, summary) => {
+            stepsRef.current = stepsRef.current.map((s) =>
+              s.id === id ? { ...s, summary } : s,
+            );
+            setActiveSteps(stepsRef.current);
+          },
+          onFinal: (reply) => {
+            replyRef.current = reply;
+          },
+        },
+        abortRef.current.signal,
+      );
+      // Capture before the finally clears the refs: setMessages' updater runs on
+      // the next render, after finally has already reset replyRef/stepsRef.
+      const finalReply = replyRef.current;
+      const finalSteps = stepsRef.current;
+      setMessages((m) => [
+        ...m,
+        {
+          id: newSessionId(),
+          role: "assistant",
+          content: finalReply,
+          steps: finalSteps.length ? finalSteps : undefined,
+        },
+      ]);
+      setConsecutiveErrors(0);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setConsecutiveErrors((n) => n + 1);
+      setMessages((m) => [
+        ...m,
+        {
+          id: newSessionId(),
+          role: "error",
+          content: (err as Error).message,
+        },
+      ]);
+    } finally {
+      setActiveSteps([]);
+      stepsRef.current = [];
+      replyRef.current = "";
+      setSending(false);
+    }
+  }, []);
 
   const send = useCallback(
     (text: string) => {
+      if (!sessionId) return;
       setMessages((m) => [
         ...m,
         { id: newSessionId(), role: "user", content: text },
       ]);
-      void run(text);
+      void run(text, sessionId);
     },
-    [run],
+    [run, sessionId],
   );
 
   const retry = useCallback(() => {
+    if (!sessionId) return;
     setMessages((m) => m.filter((msg) => msg.role !== "error"));
-    void run(lastUserText.current);
-  }, [run]);
+    void run(lastUserText.current, sessionId);
+  }, [run, sessionId]);
+
+  // Escape hatch from a wedged conversation: mint a fresh session, drop the
+  // broken thread, and resend the failed message so the user still gets an
+  // answer without retyping.
+  const startFreshAndResend = useCallback(
+    (text: string) => {
+      abortRef.current?.abort();
+      const id = newSessionId();
+      localStorage.setItem(SESSION_KEY, id);
+      setSessionId(id);
+      setConsecutiveErrors(0);
+      setMessages([{ id: newSessionId(), role: "user", content: text }]);
+      void run(text, id);
+    },
+    [run],
+  );
 
   const newChat = useCallback(() => {
     abortRef.current?.abort();
@@ -92,6 +156,7 @@ export default function Chat() {
     localStorage.setItem(SESSION_KEY, id);
     setSessionId(id);
     setMessages([]);
+    setConsecutiveErrors(0);
     setSending(false);
   }, []);
 
@@ -131,19 +196,41 @@ export default function Chat() {
             ) : (
               <div className="flex flex-col gap-5 py-8">
                 <AnimatePresence initial={false}>
-                  {messages.map((msg) => (
-                    <Message
-                      key={msg.id}
-                      message={msg}
-                      onRetry={
-                        msg.role === "error" && errorIsTrailing
-                          ? retry
-                          : undefined
-                      }
-                    />
-                  ))}
+                  {messages.map((msg) => {
+                    const isTrailingError =
+                      msg.role === "error" && errorIsTrailing;
+                    return (
+                      <Message
+                        key={msg.id}
+                        message={msg}
+                        onRetry={isTrailingError ? retry : undefined}
+                        onFreshStart={
+                          isTrailingError
+                            ? () => startFreshAndResend(lastUserText.current)
+                            : undefined
+                        }
+                        stuck={isTrailingError && consecutiveErrors >= 2}
+                      />
+                    );
+                  })}
                 </AnimatePresence>
-                <AnimatePresence>{sending && <TypingIndicator />}</AnimatePresence>
+                <AnimatePresence>
+                  {sending &&
+                    (activeSteps.length > 0 ? (
+                      <Message
+                        key="live-turn"
+                        message={{
+                          id: "live-turn",
+                          role: "assistant",
+                          content: "",
+                          steps: activeSteps,
+                        }}
+                        streaming
+                      />
+                    ) : (
+                      <TypingIndicator key="typing" />
+                    ))}
+                </AnimatePresence>
                 <div ref={bottomRef} />
               </div>
             )}

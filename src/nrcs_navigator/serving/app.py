@@ -24,23 +24,50 @@ Request and response shapes (illustrative):
 App only. The reasoning lives in agent/graph.py; the tools live in tools/.
 """
 
+import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
 from nrcs_navigator import config
+from nrcs_navigator.agent.cleanup import delete_idle_threads
 from nrcs_navigator.agent.graph import build_agent
+from nrcs_navigator.serving import trace
 
 logger = logging.getLogger("nrcs_navigator.serving")
 
 # The agent is built once on startup and reused across requests (it holds the
 # Postgres checkpointer connection). Stored on app.state via the lifespan below.
 _agent = None
+
+
+async def _cleanup_loop():
+    """Periodically delete conversation threads idle past the retention window.
+
+    Runs a sweep immediately (covering any free-tier spin-down gap) and then once
+    every CHECKPOINT_CLEANUP_INTERVAL_HOURS. The blocking psycopg work is pushed
+    to a thread so it never stalls the event loop, and a failed sweep is logged
+    and retried next interval rather than crashing serving.
+    """
+    interval = config.CHECKPOINT_CLEANUP_INTERVAL_HOURS * 3600
+    while True:
+        try:
+            removed = await asyncio.to_thread(
+                delete_idle_threads,
+                _agent.checkpointer,
+                config.CHECKPOINT_RETENTION_DAYS,
+            )
+            logger.info("checkpoint cleanup removed %d idle thread(s)", removed)
+        except Exception:
+            logger.exception("checkpoint cleanup pass failed")
+        await asyncio.sleep(interval)
 
 
 @asynccontextmanager
@@ -50,10 +77,17 @@ async def lifespan(app: FastAPI):
     build_agent attaches the Postgres checkpointer, so conversation state for a
     session_id persists across requests (and across worker processes, since the
     state lives in the shared database, not in memory).
+
+    A background task then keeps that checkpointer bounded by deleting threads
+    that have been idle past the retention window; it is cancelled on shutdown.
     """
     global _agent
     _agent = build_agent(config.PREMIER_MODEL)
-    yield
+    cleanup_task = asyncio.create_task(_cleanup_loop())
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
 
 
 app = FastAPI(title="NRCS Program Navigator", lifespan=lifespan)
@@ -135,3 +169,24 @@ def chat(req: ChatRequest) -> ChatResponse:
 
     reply = result["messages"][-1].content
     return ChatResponse(session_id=req.session_id, reply=reply)
+
+
+@app.post("/chat/stream")
+def chat_stream(req: ChatRequest) -> StreamingResponse:
+    """Stream one turn as newline delimited JSON so the UI can show the agent work.
+
+    Same conversation semantics as /chat (the session_id is the thread_id), but
+    instead of returning only the final reply it emits a sequence of trace events
+    -- each tool call, an abbreviated tool result, then the final answer token by
+    token -- as they happen. See serving/trace.py for the event shapes. Errors and
+    the recursion cap are turned into events inside the stream rather than HTTP
+    status codes, since the response headers are already sent once streaming.
+
+    Each line is a JSON object; the client splits the body on newlines.
+    """
+
+    def body():
+        for event in trace.iter_agent_events(_agent, req.message, req.session_id):
+            yield json.dumps(event) + "\n"
+
+    return StreamingResponse(body(), media_type="application/x-ndjson")

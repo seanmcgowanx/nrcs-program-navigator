@@ -15,8 +15,10 @@ models for a side by side comparison.
 The checkpointer is Postgres rather than an in memory saver so conversation
 state survives process restarts and is shared across a stateless serving layer's
 workers (a later request can land on a different process than the first). See the
-persistence decision in docs/architecture.md. Note that checkpoints are not
-removed automatically, so a production deployment would add a retention policy.
+persistence decision in docs/architecture.md. Checkpoints are not removed by the
+checkpointer itself, so a retention policy lives alongside it: the serving app
+runs a background sweep (agent/cleanup.py) that deletes threads idle past
+config.CHECKPOINT_RETENTION_DAYS, keeping the shared database bounded.
 
 Tracing is handled by LangSmith automatically when the environment variables are
 set; no explicit logging code is required here.

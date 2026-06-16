@@ -102,6 +102,16 @@ AGENT_TEMPERATURE = 0.0
 # so this allows several tool calls per turn while still capping runaway loops.
 AGENT_RECURSION_LIMIT = 12
 
+# Checkpointer retention. Conversation threads (keyed by session_id) accumulate
+# in the Postgres checkpointer forever otherwise; the serving app runs a
+# background task that deletes any thread whose newest checkpoint is older than
+# this many days, keeping the shared database bounded. See agent/cleanup.py.
+CHECKPOINT_RETENTION_DAYS = int(os.environ.get("CHECKPOINT_RETENTION_DAYS", "30"))
+# How often that background task runs the cleanup pass (hours between sweeps).
+CHECKPOINT_CLEANUP_INTERVAL_HOURS = int(
+    os.environ.get("CHECKPOINT_CLEANUP_INTERVAL_HOURS", "24")
+)
+
 # Embedding model for the eCFR vector store (the eligibility_screener's RAG).
 # Decided: OpenAI text-embedding-3-small. A fixed constant, not an env var --
 # the stored vectors are this model's 1536-wide output and the query text must

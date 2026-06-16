@@ -38,6 +38,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Tailwind v4's reset leaves buttons at the browser default cursor; show a
+   pointer on every enabled button so all controls (new conversation, example
+   tiles, send, error actions) read as clickable. Disabled buttons keep their
+   not-allowed cursor from the disabled:cursor-not-allowed utility. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* Subtle paper grain, fixed and non interactive so it never repaints on scroll. */
 .grain::before {
   content: "";
