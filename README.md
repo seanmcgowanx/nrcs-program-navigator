@@ -1,10 +1,10 @@
 # NRCS Conservation Program Navigator
 
-AAI-510 Final Team Project — an internal AI agent for advisors at an agricultural consulting agency, who use it to research NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP) for their farmer and landowner clients.
+AAI-510 Final Team Project. An internal AI agent for advisors at an agricultural consulting agency, who use it to research NRCS conservation funding programs (EQIP, CSP, ACEP, RCPP) for their farmer and landowner clients.
 
 An advisor describes a client's operation in plain language and the agent returns a ranked list of programs the client may qualify for, estimated payment ranges, applicable practice codes, and current application deadlines. The goal is to collapse a fragmented, state by state regulatory landscape into a single conversation.
 
-> This repository is a bare bones scaffold. Every module is a stub containing only a docstring describing its purpose. No logic is implemented yet.
+**Live demo: https://nrcs-program-navigator.vercel.app** (no setup needed). The backend spins down when idle, so the first message after a quiet spell may take a few seconds to wake.
 
 ## Architecture at a glance
 
@@ -21,7 +21,9 @@ Scope handling is not a tool. The agent gracefully declines out of scope request
 
 The multiple model requirement is satisfied at evaluation time by swapping the agent LLM (premier model vs. cheaper model) across traces. It is not a two LLM pipeline.
 
-Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state). An optional FastAPI serving layer (`POST /chat`) wraps the agent so it can run as a service; `docker-compose.yml` brings up the database for local reproducibility.
+Persistence is a single PostgreSQL database with the pgvector extension. It holds three things: the `payment_rates` table, the eCFR embeddings, and the LangGraph checkpointer (agent conversation state). A FastAPI serving layer (`POST /chat`) wraps the agent so it can run as a service; `docker-compose.yml` brings up the database for local reproducibility.
+
+The live demo runs that serving layer on Render (backend) and a Next.js frontend on Vercel, backed by a Neon Postgres database. The full hosting setup is in [docs/deploy.md](docs/deploy.md).
 
 ## Repository structure
 
@@ -29,6 +31,8 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 .
 ├── pyproject.toml              Poetry project + dependencies
 ├── docker-compose.yml          Local Postgres + pgvector for reproducibility
+├── Dockerfile                  Backend image (FastAPI + headless Chromium) for Render
+├── render.yaml                 Render Blueprint for the backend service
 ├── .env.example                Template for API keys and settings (copy to .env)
 ├── .gitignore
 ├── notebooks/                  Graded deliverables (run top to bottom)
@@ -58,6 +62,8 @@ Persistence is a single PostgreSQL database with the pgvector extension. It hold
 │       ├── judge.py                    LLM as judge scoring functions
 │       └── run_traces.py               Run the 5 traces and log them to LangSmith
 ├── tests/                      Lightweight unit tests for tools and wiring
+├── frontend/                   Next.js chat UI (deployed to Vercel)
+├── docs/                       Architecture reference and deployment runbook
 └── data/
     └── raw/                        Downloaded CSV and cached eCFR XML (git ignored)
 ```
@@ -72,7 +78,9 @@ Cleaned payments and embeddings are not kept on disk; they live in Postgres.
 - Persistence: PostgreSQL + pgvector (payment_rates table, eCFR embeddings, agent checkpointer)
 - Environment and dependencies: Poetry
 
-## Setup
+## Run it locally
+
+To just use the agent, open the [live demo](https://nrcs-program-navigator.vercel.app). The steps below are for reproducing the graded notebooks or running the pipeline yourself.
 
 1. Install Poetry if you do not have it. Install it in isolation, not into a conda or project environment, so its own dependencies stay separate:
 

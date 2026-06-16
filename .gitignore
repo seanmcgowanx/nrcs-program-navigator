@@ -22,6 +22,9 @@ venv/
 data/raw/*
 !data/raw/.gitkeep
 
+# --- Assistant context (kept local; docs/ is tracked) ---
+CLAUDE.md
+
 # --- OS / editor ---
 .DS_Store
 .idea/

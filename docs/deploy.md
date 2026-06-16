@@ -18,7 +18,7 @@ local `.env` (`NRCS_PRACTICE_STANDARDS_URL`, `NRCS_RANKING_DATES_URL`).
 
 ---
 
-## Phase 1 - Provision the Neon database
+## Phase 1: Provision the Neon database
 
 1. Create a free project at https://neon.tech. Note the connection string from
    the dashboard (Connection Details). It looks like
@@ -28,7 +28,7 @@ local `.env` (`NRCS_PRACTICE_STANDARDS_URL`, `NRCS_RANKING_DATES_URL`).
    ```
    postgresql+psycopg://USER:PASS@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
    ```
-   Keep `sslmode=require` - Neon refuses non TLS connections. The checkpointer
+   Keep `sslmode=require`; Neon refuses non TLS connections. The checkpointer
    helper (`db.psycopg_url`) strips the `+psycopg` tag but preserves `sslmode`.
 
 The `vector` extension does not need manual enabling here; `init_db()` runs
@@ -36,7 +36,7 @@ The `vector` extension does not need manual enabling here; `init_db()` runs
 
 ---
 
-## Phase 2 - Load the data into Neon
+## Phase 2: Load the data into Neon
 
 Run the existing pipeline locally, pointed at Neon. This is the same sequence
 `notebooks/01_data_pipeline.ipynb` performs, condensed to one command.
@@ -72,7 +72,7 @@ Run the existing pipeline locally, pointed at Neon. This is the same sequence
 
 ---
 
-## Phase 3 - Deploy the backend to Render
+## Phase 3: Deploy the backend to Render
 
 The repo ships a `Dockerfile` (Chromium only Playwright image) and a
 `render.yaml` Blueprint. The backend must be a Docker service; Render's native
@@ -108,7 +108,7 @@ Notes:
 
 ---
 
-## Phase 4 - Keep the backend awake
+## Phase 4: Keep the backend awake
 
 Render free spins the service down after about 15 minutes idle, and the next
 request then pays a cold boot (which surfaces to a user as a request that hangs
@@ -131,7 +131,7 @@ A https://cron-job.org job hitting the same `/health` URL every 5 to 10 minutes
 works equally well as an alternative.
 
 Do not use GitHub Actions `schedule` for this. Scheduled workflows are
-best-effort and routinely fire far later than requested (10 minute cadences
+best effort and routinely fire far later than requested (10 minute cadences
 slipping to an hour or more), which is too loose for a 15 minute idle window. The
 repo contains `.github/workflows/keep-warm.yml` from an earlier approach; disable
 it (Actions tab > keep-warm > Disable workflow) so it does not run, and rely on
@@ -139,7 +139,7 @@ the external monitor instead.
 
 ---
 
-## Phase 5 - Deploy the frontend to Vercel
+## Phase 5: Deploy the frontend to Vercel
 
 1. In Vercel, New Project, import the same repo, and set the Root Directory to
    `frontend`. Vercel detects Next.js automatically.
@@ -159,7 +159,7 @@ the external monitor instead.
 
 ---
 
-## Phase 6 - Tracing with LangSmith (optional)
+## Phase 6: Tracing with LangSmith (optional)
 
 Tracing captures each agent run (per tool latency, recursion trips, errors),
 which is the fastest way to see where a slow or failing turn spends its time. It
