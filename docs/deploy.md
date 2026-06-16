@@ -159,8 +159,7 @@ the external monitor instead.
 
 ---
 
-## Phase 6: Tracing with LangSmith (optional)
-
+## Phase 6: Tracing with LangSmith 
 Tracing captures each agent run (per tool latency, recursion trips, errors),
 which is the fastest way to see where a slow or failing turn spends its time. It
 needs no code change; LangGraph instruments itself when the environment is set.
