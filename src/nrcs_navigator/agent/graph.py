@@ -25,9 +25,10 @@ set; no explicit logging code is required here.
 """
 
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import create_react_agent
 from psycopg.rows import dict_row
-from psycopg_pool import ConnectionPool
+from psycopg_pool import AsyncConnectionPool, ConnectionPool
 
 from nrcs_navigator.agent import llms, prompts
 from nrcs_navigator.data import db
@@ -91,6 +92,10 @@ def build_agent(model_name: str | None = None):
             {"messages": [("user", "...")]},
             config={"configurable": {"thread_id": "session-1"}},
         )
+
+    This is the synchronous build, used by the notebooks and the evaluation
+    harness. The serving layer streams per-tool events and so uses the async
+    build below.
     """
     model = llms.get_model(model_name)
     return create_react_agent(
@@ -98,4 +103,50 @@ def build_agent(model_name: str | None = None):
         TOOLS,
         prompt=prompts.SYSTEM_PROMPT,
         checkpointer=_checkpointer(),
+    )
+
+
+async def _async_checkpointer() -> AsyncPostgresSaver:
+    """The async twin of _checkpointer, for the serving layer's event stream.
+
+    The serving app streams each tool's start and finish in real time via the
+    agent's astream_events, which runs the graph on the event loop and therefore
+    needs an async checkpointer (the sync PostgresSaver only implements the
+    blocking interface). Same serverless-friendly pool settings as the sync one;
+    the pool is opened and the tables created here, inside the caller's running
+    loop, since both are async operations.
+    """
+    pool = AsyncConnectionPool(
+        conninfo=db.psycopg_url(),
+        min_size=1,
+        max_size=4,
+        max_idle=120,
+        check=AsyncConnectionPool.check_connection,
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": 0,
+            "row_factory": dict_row,
+        },
+        open=False,
+    )
+    await pool.open()
+    saver = AsyncPostgresSaver(pool)
+    await saver.setup()
+    return saver
+
+
+async def build_agent_async(model_name: str | None = None):
+    """Async build of the same agent, backed by an async Postgres checkpointer.
+
+    Used by the serving layer so it can drive astream_events (per-tool start and
+    finish events) and await the checkpointer. Must be called from within a
+    running event loop, for example a FastAPI lifespan. Invoke the returned agent
+    with ainvoke / astream / astream_events, never the blocking methods.
+    """
+    model = llms.get_model(model_name)
+    return create_react_agent(
+        model,
+        TOOLS,
+        prompt=prompts.SYSTEM_PROMPT,
+        checkpointer=await _async_checkpointer(),
     )

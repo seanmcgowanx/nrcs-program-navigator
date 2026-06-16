@@ -4,9 +4,9 @@ Lets a client hold a multi turn conversation with the
 agent the same way the notebooks do, but over a network API.
 
 Intended responsibilities:
-    - Build the agent once on startup via agent/graph.build_agent(model_name),
-      reusing the Postgres checkpointer so conversation state survives across
-      requests.
+    - Build the agent once on startup via agent/graph.build_agent_async(
+      model_name), reusing the async Postgres checkpointer so conversation state
+      survives across requests and tool events can be streamed.
     - Expose POST /chat that accepts a session_id and a user message, threads
       the call through the agent using that session_id (so the elicitation
       flow and farmer profile persist across calls), and returns the agent's
@@ -38,7 +38,7 @@ from pydantic import BaseModel
 
 from nrcs_navigator import config
 from nrcs_navigator.agent.cleanup import delete_idle_threads
-from nrcs_navigator.agent.graph import build_agent
+from nrcs_navigator.agent.graph import build_agent_async
 from nrcs_navigator.serving import trace
 
 logger = logging.getLogger("nrcs_navigator.serving")
@@ -52,15 +52,14 @@ async def _cleanup_loop():
     """Periodically delete conversation threads idle past the retention window.
 
     Runs a sweep immediately (covering any free-tier spin-down gap) and then once
-    every CHECKPOINT_CLEANUP_INTERVAL_HOURS. The blocking psycopg work is pushed
-    to a thread so it never stalls the event loop, and a failed sweep is logged
-    and retried next interval rather than crashing serving.
+    every CHECKPOINT_CLEANUP_INTERVAL_HOURS. delete_idle_threads is async (it uses
+    the agent's async checkpointer), and a failed sweep is logged and retried next
+    interval rather than crashing serving.
     """
     interval = config.CHECKPOINT_CLEANUP_INTERVAL_HOURS * 3600
     while True:
         try:
-            removed = await asyncio.to_thread(
-                delete_idle_threads,
+            removed = await delete_idle_threads(
                 _agent.checkpointer,
                 config.CHECKPOINT_RETENTION_DAYS,
             )
@@ -74,20 +73,23 @@ async def _cleanup_loop():
 async def lifespan(app: FastAPI):
     """Build the agent once when the process starts, before serving requests.
 
-    build_agent attaches the Postgres checkpointer, so conversation state for a
-    session_id persists across requests (and across worker processes, since the
-    state lives in the shared database, not in memory).
+    build_agent_async attaches an async Postgres checkpointer, so conversation
+    state for a session_id persists across requests (and across worker processes,
+    since the state lives in the shared database, not in memory) and the serving
+    layer can stream per-tool events via astream_events.
 
     A background task then keeps that checkpointer bounded by deleting threads
-    that have been idle past the retention window; it is cancelled on shutdown.
+    that have been idle past the retention window; both it and the checkpointer's
+    connection pool are torn down on shutdown.
     """
     global _agent
-    _agent = build_agent(config.PREMIER_MODEL)
+    _agent = await build_agent_async(config.PREMIER_MODEL)
     cleanup_task = asyncio.create_task(_cleanup_loop())
     try:
         yield
     finally:
         cleanup_task.cancel()
+        await _agent.checkpointer.conn.close()
 
 
 app = FastAPI(title="NRCS Program Navigator", lifespan=lifespan)
@@ -130,12 +132,15 @@ def health() -> dict:
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+async def chat(req: ChatRequest) -> ChatResponse:
     """Thread one user message through the agent under the given session_id.
 
     The thread_id is the session_id, so the checkpointer resumes the same
     conversation (the elicitation flow and elicited client profile) on every
     call with that id. A new session_id starts a fresh conversation.
+
+    Non streaming sibling of /chat/stream, returning only the final reply. Async
+    because the agent's checkpointer is async (the streaming path needs it).
 
     The recursion_limit caps the ReAct loop so a confused agent fails fast rather
     than running up latency. A trip is turned into a plain reply (the user gets
@@ -143,7 +148,7 @@ def chat(req: ChatRequest) -> ChatResponse:
     frontend can show its error state and offer a retry.
     """
     try:
-        result = _agent.invoke(
+        result = await _agent.ainvoke(
             {"messages": [("user", req.message)]},
             config={
                 "configurable": {"thread_id": req.session_id},
@@ -172,21 +177,24 @@ def chat(req: ChatRequest) -> ChatResponse:
 
 
 @app.post("/chat/stream")
-def chat_stream(req: ChatRequest) -> StreamingResponse:
+async def chat_stream(req: ChatRequest) -> StreamingResponse:
     """Stream one turn as newline delimited JSON so the UI can show the agent work.
 
     Same conversation semantics as /chat (the session_id is the thread_id), but
     instead of returning only the final reply it emits a sequence of trace events
-    -- each tool call, an abbreviated tool result, then the final answer token by
-    token -- as they happen. See serving/trace.py for the event shapes. Errors and
-    the recursion cap are turned into events inside the stream rather than HTTP
-    status codes, since the response headers are already sent once streaming.
+    -- each tool call as it starts, an abbreviated result as that tool finishes,
+    then the final answer -- as they happen. See serving/trace.py for the event
+    shapes. Errors and the recursion cap are turned into events inside the stream
+    rather than HTTP status codes, since the response headers are already sent
+    once streaming.
 
     Each line is a JSON object; the client splits the body on newlines.
     """
 
-    def body():
-        for event in trace.iter_agent_events(_agent, req.message, req.session_id):
+    async def body():
+        async for event in trace.aiter_agent_events(
+            _agent, req.message, req.session_id
+        ):
             yield json.dumps(event) + "\n"
 
     return StreamingResponse(body(), media_type="application/x-ndjson")

@@ -11,9 +11,14 @@ frontend friendly event dicts and abbreviates each tool result to a single line.
 The tool steps stream live so the UI can show the agent working, but the final
 answer is sent as one event when it is ready (no token streaming).
 
+Per-tool timing is real: the agent is streamed with astream_events, whose
+on_tool_start / on_tool_end fire as each tool actually begins and finishes. (The
+coarser "updates" stream only reports a whole node once it completes, so parallel
+tool calls would appear to finish at the same instant -- gated on the slowest.)
+
 Event shapes (one JSON object per line on the wire):
-    {"type": "step_start", "id": <tool_call_id>, "label": "Estimating payments"}
-    {"type": "step_end",   "id": <tool_call_id>, "summary": "3 programs found"}
+    {"type": "step_start", "id": <tool_run_id>, "label": "Estimating payments"}
+    {"type": "step_end",   "id": <tool_run_id>, "summary": "3 programs found"}
     {"type": "final",      "reply": "Based on ..."}
     {"type": "done"}
     {"type": "error",      "message": "..."}
@@ -116,26 +121,52 @@ def summarize_tool_result(name: str, content) -> str:
     return "done"
 
 
-def iter_agent_events(agent, message: str, session_id: str):
+async def aiter_agent_events(agent, message: str, session_id: str):
     """Run the agent for one turn and yield trace event dicts as they happen.
 
-    Streams in "updates" mode: each chunk is one node's output, giving the tool
-    calls as the agent decides them, the tool results as they return, and finally
-    the assistant's answer. Tool calls and results become step events that stream
-    live; the answer (an AI message with content and no tool calls) becomes a
-    single "final" event.
+    Uses astream_events so each tool's start and finish are real events:
+        on_tool_start  -> step_start (the run_id keys the matching step_end)
+        on_tool_end    -> step_end with an abbreviated result
+        on_chat_model_end (content, no tool calls) -> the final answer
+
+    Parallel tools therefore complete at their true, staggered times rather than
+    together at a node boundary.
     """
     cfg = {
         "configurable": {"thread_id": session_id},
         "recursion_limit": config.AGENT_RECURSION_LIMIT,
     }
     try:
-        for update in agent.stream(
+        async for event in agent.astream_events(
             {"messages": [("user", message)]},
             config=cfg,
-            stream_mode="updates",
+            version="v2",
         ):
-            yield from _events_from_update(update)
+            kind = event.get("event")
+            if kind == "on_tool_start":
+                yield {
+                    "type": "step_start",
+                    "id": event.get("run_id"),
+                    "label": label_for(event.get("name", "")),
+                }
+            elif kind == "on_tool_end":
+                output = event.get("data", {}).get("output")
+                # The output is the tool's return (dict or str) or a ToolMessage
+                # wrapping it; summarize_tool_result handles either form.
+                content = getattr(output, "content", output)
+                yield {
+                    "type": "step_end",
+                    "id": event.get("run_id"),
+                    "summary": summarize_tool_result(event.get("name", ""), content),
+                }
+            elif kind == "on_chat_model_end":
+                message_out = event.get("data", {}).get("output")
+                tool_calls = getattr(message_out, "tool_calls", None) or []
+                content = getattr(message_out, "content", "")
+                # The final answer is the model turn that produces text and no
+                # tool calls; the tool deciding turns are skipped.
+                if isinstance(content, str) and content.strip() and not tool_calls:
+                    yield {"type": "final", "reply": content}
     except GraphRecursionError:
         logger.warning("recursion limit hit for session %s", session_id)
         yield {"type": "final", "reply": RECURSION_REPLY}
@@ -147,33 +178,3 @@ def iter_agent_events(agent, message: str, session_id: str):
         }
         return
     yield {"type": "done"}
-
-
-def _events_from_update(update: dict):
-    """Translate one LangGraph "updates" chunk into step and final events.
-
-    A tool calling step is an AI message with tool_calls (one step_start each);
-    a tool node yields ToolMessages (one step_end each); the final answer is the
-    AI message that carries content and no tool_calls.
-    """
-    for node, payload in update.items():
-        messages = (payload or {}).get("messages", []) if isinstance(payload, dict) else []
-        for msg in messages:
-            tool_calls = getattr(msg, "tool_calls", None) or []
-            for call in tool_calls:
-                yield {
-                    "type": "step_start",
-                    "id": call.get("id"),
-                    "label": label_for(call.get("name", "")),
-                }
-            if getattr(msg, "type", None) == "tool":
-                # A ToolMessage carries the result of one tool call.
-                yield {
-                    "type": "step_end",
-                    "id": getattr(msg, "tool_call_id", None),
-                    "summary": summarize_tool_result(getattr(msg, "name", ""), msg.content),
-                }
-            elif getattr(msg, "type", None) == "ai" and not tool_calls:
-                content = getattr(msg, "content", "")
-                if isinstance(content, str) and content.strip():
-                    yield {"type": "final", "reply": content}
