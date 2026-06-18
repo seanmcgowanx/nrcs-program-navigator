@@ -36,7 +36,7 @@ The live demo runs that serving layer on Render (backend) and a Next.js frontend
 ├── notebooks/                  Project notebooks (run top to bottom)
 │   ├── 01_data_pipeline.ipynb      Load CSV payments, fetch + embed eCFR
 │   ├── 02_agent_definition.ipynb   Assemble LLM + 4 tools + ReAct loop
-│   └── 03_evaluation_traces.ipynb  5 traces, LLM comparison, judge
+│   └── 03_evaluation_traces.ipynb  LLM comparison, judge scorecard, RAG eval, eval commentary
 ├── src/nrcs_navigator/         Importable package (notebooks import from here)
 │   ├── config.py                   Central settings, model names, paths from .env
 │   ├── data/                       Data pipeline building blocks
